@@ -244,7 +244,6 @@ GO
 
 ----------------------------------------------------------------------------------------------
 
-/database/indices_optimizacion.sql
 -- ==============================================
 -- OPTIMIZACIÓN DE ÍNDICES – SISTEMA MEDORA
 -- ==============================================
@@ -252,16 +251,16 @@ GO
 -- Tabla Usuario
 CREATE INDEX IX_Usuario_id_rol ON Usuario(id_rol);
 CREATE INDEX IX_Usuario_id_especialidad ON Usuario(id_especialidad);
-CREATE INDEX IX_Usuario_estado ON Usuario(estado_usuario);
 
 -- Tabla Turno
 CREATE INDEX IX_Turno_fecha ON Turno(fecha_turno);
 
 -- Tabla Reserva
 CREATE INDEX IX_Reserva_estado ON Reserva(id_estado);
-CREATE INDEX IX_Reserva_turno ON Reserva(id_turno);
-CREATE INDEX IX_Reserva_motivo ON Reserva(id_motivo_consulta);
+CREATE INDEX IX_Reserva_motivo_consulta ON Reserva(id_motivo_consulta);
 
 -- Tabla Bloque_Horario
 CREATE INDEX IX_BH_medico ON Bloque_Horario(id_medico);
+
+
 
