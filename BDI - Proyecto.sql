@@ -251,38 +251,26 @@ GO
 -- Tabla Usuario
 CREATE INDEX IX_Usuario_id_rol ON Usuario(id_rol);
 CREATE INDEX IX_Usuario_id_especialidad ON Usuario(id_especialidad);
+CREATE INDEX IX_Usuario_Nombre_Apellido ON Usuario(nombre, apellido);
 
 -- Tabla Turno
 CREATE INDEX IX_Turno_fecha ON Turno(fecha_turno);
+CREATE INDEX IX_Turno_id_bloque ON Turno(id_bloque);
+CREATE INDEX IX_Turno_fecha_hora ON Turno(fecha_turno, hora_inicio);  -- opcional
+CREATE INDEX IX_Turno_Disponibles_Fecha 
+    ON Turno(fecha_turno, hora_inicio) 
+    WHERE id_estado_turno = 1;
 
 -- Tabla Reserva
-CREATE INDEX IX_Reserva_estado ON Reserva(id_estado);
 CREATE INDEX IX_Reserva_motivo_consulta ON Reserva(id_motivo_consulta);
+CREATE INDEX IX_Reserva_Paciente ON Reserva(id_paciente);
+CREATE INDEX IX_Reserva_Turno ON Reserva(id_turno);
 
 -- Tabla Bloque_Horario
 CREATE INDEX IX_BH_medico ON Bloque_Horario(id_medico);
+CREATE INDEX IX_BH_Medico_Dia ON Bloque_Horario(id_medico, id_dia);
+CREATE INDEX IX_BH_Activo ON Bloque_Horario(activo) WHERE activo = 1;
 
---Para Join entre Turno ->Bloque_Horario → Acelera cualquier JOIN a bloques.
-CREATE INDEX IX_Turno_id_bloque ON Turno(id_bloque);
-
---Index compuesto util para agendar diaria → Orden y obtención rápida de turnos por día + horario.
-CREATE INDEX IX_Turno_fecha_hora
-ON Turno(fecha_turno, hora_inicio);
-
---Consulta por turnos disponibles → Acelera ver turnos "disponibles".
-CREATE INDEX IX_Turno_Disponibles
-ON Turno(id_estado_turno);
-
---Opcional mejorado → filtrado por estado=1
-CREATE INDEX IX_Turno_Disponibles_Fecha
-ON Turno(fecha_turno, hora_inicio)
-WHERE id_estado_turno = 1;
-
-
---Para búsquedas por día y médico en Bloque_Horario → Acelera armado de agenda médica.
-
-CREATE INDEX IX_BH_Medico_Dia
-ON Bloque_Horario(id_medico, id_dia);
 
 
 
