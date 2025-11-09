@@ -262,5 +262,31 @@ CREATE INDEX IX_Reserva_motivo_consulta ON Reserva(id_motivo_consulta);
 -- Tabla Bloque_Horario
 CREATE INDEX IX_BH_medico ON Bloque_Horario(id_medico);
 
+--Para Join entre Turno ->Bloque_Horario → Acelera cualquier JOIN a bloques.
+CREATE INDEX IX_Turno_id_bloque ON Turno(id_bloque);
+
+--Index compuesto util para agendar diaria → Orden y obtención rápida de turnos por día + horario.
+CREATE INDEX IX_Turno_fecha_hora
+ON Turno(fecha_turno, hora_inicio);
+
+--Consulta por turnos disponibles → Acelera ver turnos "disponibles".
+CREATE INDEX IX_Turno_Disponibles
+ON Turno(id_estado_turno);
+
+--Opcional mejorado → filtrado por estado=1
+CREATE INDEX IX_Turno_Disponibles_Fecha
+ON Turno(fecha_turno, hora_inicio)
+WHERE id_estado_turno = 1;
+
+
+--Para búsquedas por día y médico en Bloque_Horario → Acelera armado de agenda médica.
+
+CREATE INDEX IX_BH_Medico_Dia
+ON Bloque_Horario(id_medico, id_dia);
+
+
+
+
+
 
 
