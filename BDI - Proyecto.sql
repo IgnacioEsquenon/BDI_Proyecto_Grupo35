@@ -278,3 +278,4 @@ CREATE INDEX IX_BH_Activo ON Bloque_Horario(activo) WHERE activo = 1;
 
 
 
+
