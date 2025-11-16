@@ -1,1 +1,2 @@
-Esto es un test de txt
+# Texto para aplicar formato de prueba
+Esto es un test que donde luego se escribirá el informe
