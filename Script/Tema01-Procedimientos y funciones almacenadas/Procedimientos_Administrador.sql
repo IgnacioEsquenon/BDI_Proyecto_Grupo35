@@ -79,6 +79,21 @@
 
                     PRINT 'Usuario desactivado correctamente.';
                 END;
+--- f4: Función auxiliar para el siguiente procedimiento que calcula y devuelve el porcentaje con los valores pasados como parámetros
+                CREATE OR ALTER FUNCTION fn_Porcentaje
+                (
+                    @Parcial DECIMAL(18,2),
+                    @Total   DECIMAL(18,2)
+                )
+                RETURNS DECIMAL(6,2)
+                AS
+                BEGIN
+                    IF @Total IS NULL OR @Total = 0 -- Si la cantidad total es nula, entonces se devuelve cero (para evitar división por 0)
+                        RETURN 0;
+                
+                    RETURN CAST((@Parcial * 100.0) / @Total AS DECIMAL(6,2)); -- Se calcula el porcentaje multiplicando el valor parcial por 100 y dividiendo por el total (>0)
+                END;
+                GO
 --- Procedimiento #04: Procedimiento que muestra indicadores generales de la clínica.
                     -- Incluye la cantidad total de reservas programadas, atendidas, canceladas y ausentes, así como
                     -- el porcentaje de cada tipo y el promedio de reservas atendidas por médico.
@@ -88,14 +103,14 @@
                 AS
                 BEGIN
                     SET NOCOUNT ON;
-
+                
                     -- 1) Variables de agregados globales
                     DECLARE @TotalProgramados INT = 0;
                     DECLARE @TotalAtendidos INT = 0;
                     DECLARE @TotalCancelados INT = 0;
                     DECLARE @TotalAusencias INT = 0;
                     DECLARE @TotalMedicos INT = 0;
-
+                
                     -- 2) CTE que reúne todas las reservas del período analizado
                     WITH ReservasClinica AS (
                         SELECT
@@ -111,28 +126,21 @@
                     -- 3) Asignar agregados
                     SELECT
                         @TotalProgramados = COUNT(*),
-                        @TotalAtendidos = SUM(CASE WHEN id_estado = 3 THEN 1 ELSE 0 END),
-                        @TotalCancelados = SUM(CASE WHEN id_estado = 2 THEN 1 ELSE 0 END),
-                        @TotalAusencias = SUM(CASE WHEN id_estado = 1 AND fecha_turno < CAST(GETDATE() AS DATE)
-                                                   THEN 1 ELSE 0 END),
+                        @TotalAtendidos = ISNULL(SUM(CASE WHEN id_estado = 3 THEN 1 ELSE 0 END), 0),
+                        @TotalCancelados =  ISNULL(SUM(CASE WHEN id_estado = 2 THEN 1 ELSE 0 END), 0),
+                        @TotalAusencias =  ISNULL(SUM(CASE WHEN id_estado = 1 AND fecha_turno < CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END), 0),
                         @TotalMedicos = COUNT(DISTINCT id_medico)
                     FROM ReservasClinica;
-
+                
                     -- 4) Devolver resultados
                     SELECT
                         @TotalProgramados AS [Reservas Programadas],
                         @TotalAtendidos  AS [Reservas Atendidas],
                         @TotalCancelados AS [Reservas Canceladas],
                         @TotalAusencias  AS [Reservas con Ausencia],
-                        CASE WHEN @TotalProgramados = 0 THEN 0
-                             ELSE CAST(@TotalAtendidos * 100.0 / @TotalProgramados AS DECIMAL(6,2))
-                        END AS [% Atendidas],
-                        CASE WHEN @TotalProgramados = 0 THEN 0
-                             ELSE CAST(@TotalCancelados * 100.0 / @TotalProgramados AS DECIMAL(6,2))
-                        END AS [% Canceladas],
-                        CASE WHEN @TotalProgramados = 0 THEN 0
-                             ELSE CAST(@TotalAusencias * 100.0 / @TotalProgramados AS DECIMAL(6,2))
-                        END AS [% Ausencias],
+                        dbo.fn_Porcentaje(@TotalAtendidos, @TotalProgramados) AS [% Atendidas],
+                        dbo.fn_Porcentaje(@TotalCancelados, @TotalProgramados) AS [% Canceladas],
+                        dbo.fn_Porcentaje(@TotalAusencias, @TotalProgramados) AS [% Ausencias],
                         CASE WHEN @TotalMedicos = 0 THEN 0
                              ELSE CAST(@TotalAtendidos * 1.0 / @TotalMedicos AS DECIMAL(6,2))
                         END AS [Promedio de Reservas Atendidas por Médico];
@@ -206,4 +214,5 @@
                     @FechaFin = '2025-11-30';
                 */
 -------------------------------------------------------------------------------------------------------
+
 
