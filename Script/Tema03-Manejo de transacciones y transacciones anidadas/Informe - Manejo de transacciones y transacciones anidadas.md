@@ -32,14 +32,3 @@ Lo crucial es que un ROLLBACK TRANSACTION en cualquier nivel anidado revierte la
 Para lograr una reversión parcial, que es un objetivo común en lógicas de negocio complejas, la herramienta correcta es SAVE TRANSACTION (o SAVEPOINT).
 
 Un SAVEPOINT marca un punto dentro de una transacción al que se puede revertir parcialmente (ROLLBACK TRANSACTION <nombre_savepoint>) sin cancelar la transacción principal. Esto permite que una operación secundaria (Tarea B) falle y sea revertida, mientras que la operación principal (Tarea A) puede continuar y ser confirmada (COMMIT).
-
-
-_Conclusiones Generales_
-
-Las pruebas realizadas en los scripts demuestran la implementación práctica y la importancia crítica del modelo ACID en SQL Server.
-
-Las transacciones simples (BEGIN/COMMIT/ROLLBACK) son la herramienta fundamental para garantizar la Atomicidad en operaciones de "todo o nada", previniendo la corrupción de datos.
-
-Los SAVEPOINTs (SAVE TRANSACTION) proveen un mecanismo de control de errores más granular. Permiten que el sistema sea resiliente, manejando fallos en tareas secundarias sin deshacer operaciones críticas que ya se han completado.
-
-El manejo correcto de transacciones no es una característica opcional, sino un requisito indispensable para cualquier base de datos que deba mantener la integridad y consistencia de sus datos.
