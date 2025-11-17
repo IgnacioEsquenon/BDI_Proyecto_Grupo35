@@ -244,32 +244,182 @@ GO
 
 ----------------------------------------------------------------------------------------------
 
--- ==============================================
--- OPTIMIZACIÓN DE ÍNDICES – SISTEMA MEDORA
--- ==============================================
+-- =============================================
+-- ÍNDICES OPTIMIZADOS PARA BASE DE DATOS MedoraDB
+-- =============================================
+-- =============================================
+-- ELIMINAR ÍNDICES EXISTENTES PRIMERO
+-- =============================================
+DROP INDEX IF EXISTS IX_Usuario_DNI_Unique ON Usuario;
+DROP INDEX IF EXISTS IX_Usuario_Email_Unique ON Usuario;
+DROP INDEX IF EXISTS IX_Usuario_Telefono_Unique ON Usuario;
+DROP INDEX IF EXISTS IX_Usuario_Rol_Especialidad ON Usuario;
+DROP INDEX IF EXISTS IX_Usuario_Busqueda_NombreApellido ON Usuario;
+DROP INDEX IF EXISTS IX_Usuario_Rol_Especialidad_Nombre ON Usuario;
+DROP INDEX IF EXISTS IX_Usuario_IdEspecialidad ON Usuario;
 
--- Tabla Usuario
-CREATE INDEX IX_Usuario_id_rol ON Usuario(id_rol);
-CREATE INDEX IX_Usuario_id_especialidad ON Usuario(id_especialidad);
-CREATE INDEX IX_Usuario_Nombre_Apellido ON Usuario(nombre, apellido);
+-- =============================================
+-- ÍNDICES PARA TABLA Usuario
+-- =============================================
+-- =============================================
+-- ÍNDICES CORREGIDOS PARA TABLA Usuario (SIN GUIONES)
+-- =============================================
+CREATE UNIQUE INDEX IX_Usuario_DNI_Unique ON Usuario(dni);
+CREATE UNIQUE INDEX IX_Usuario_Email_Unique ON Usuario(email);
+CREATE UNIQUE INDEX IX_Usuario_Telefono_Unique ON Usuario(telefono);
 
--- Tabla Turno
-CREATE INDEX IX_Turno_fecha ON Turno(fecha_turno);
-CREATE INDEX IX_Turno_id_bloque ON Turno(id_bloque);
-CREATE INDEX IX_Turno_fecha_hora ON Turno(fecha_turno, hora_inicio);  -- opcional
-CREATE INDEX IX_Turno_Disponibles_Fecha 
-    ON Turno(fecha_turno, hora_inicio) 
-    WHERE id_estado_turno = 1;
+CREATE INDEX IX_Usuario_Rol_Especialidad 
+ON Usuario (id_rol, id_especialidad)
+INCLUDE (nombre, apellido, dni, email, telefono);
 
--- Tabla Reserva
-CREATE INDEX IX_Reserva_motivo_consulta ON Reserva(id_motivo_consulta);
-CREATE INDEX IX_Reserva_Paciente ON Reserva(id_paciente);
-CREATE INDEX IX_Reserva_Turno ON Reserva(id_turno);
+CREATE INDEX IX_Usuario_Busqueda_NombreApellido 
+ON Usuario (apellido, nombre)
+INCLUDE (id_usuario, dni, email, telefono, id_rol, id_especialidad);
 
--- Tabla Bloque_Horario
-CREATE INDEX IX_BH_medico ON Bloque_Horario(id_medico);
-CREATE INDEX IX_BH_Medico_Dia ON Bloque_Horario(id_medico, id_dia);
-CREATE INDEX IX_BH_Activo ON Bloque_Horario(activo) WHERE activo = 1;
+CREATE INDEX IX_Usuario_Rol_Especialidad_Nombre
+ON Usuario (id_rol, id_especialidad, apellido, nombre)
+INCLUDE (email, telefono);
+
+CREATE INDEX IX_Usuario_IdEspecialidad 
+ON Usuario (id_especialidad)
+INCLUDE (id_usuario);
+
+
+-- =============================================
+-- ELIMINAR ÍNDICES EXISTENTES DE TURNO
+-- =============================================
+DROP INDEX IF EXISTS IX_Turno_IdBloque_IdEstado ON Turno;
+DROP INDEX IF EXISTS IX_Turno_FechaTurno ON Turno;
+DROP INDEX IF EXISTS IX_Turno_IdBloque_Fecha ON Turno;
+DROP INDEX IF EXISTS IX_Turno_Fecha_Completo ON Turno;
+DROP INDEX IF EXISTS IX_Turno_Disponible_Completo ON Turno;
+DROP INDEX IF EXISTS IX_Turno_Fecha_Reserva ON Turno;
+
+---=============================================
+-- CREAR ÍNDICES NUEVOS PARA TURNO
+-- =============================================
+CREATE INDEX IX_Turno_IdBloque_IdEstado 
+ON Turno (id_bloque, id_estado_turno)
+INCLUDE (id_turno, fecha_turno);
+
+CREATE INDEX IX_Turno_FechaTurno 
+ON Turno (fecha_turno)
+INCLUDE (id_turno, id_bloque);
+
+CREATE INDEX IX_Turno_IdBloque_Fecha
+ON Turno (id_bloque, fecha_turno)
+INCLUDE (hora_inicio, hora_fin, id_estado_turno);
+
+CREATE INDEX IX_Turno_Fecha_Completo
+ON Turno (fecha_turno)
+INCLUDE (id_turno, hora_inicio, hora_fin, id_bloque, id_estado_turno);
+
+CREATE INDEX IX_Turno_Disponible_Completo
+ON Turno (id_estado_turno, fecha_turno)
+INCLUDE (id_turno, hora_inicio, hora_fin, id_bloque);
+
+CREATE INDEX IX_Turno_Fecha_Reserva
+ON Turno (fecha_turno)
+INCLUDE (id_turno);
+
+
+-- =============================================
+-- ELIMINAR ÍNDICES EXISTENTES DE RESERVA
+-- =============================================
+DROP INDEX IF EXISTS IX_Reserva_IdTurno_IdEstado ON Reserva;
+DROP INDEX IF EXISTS IX_Reserva_IdMotivoConsulta ON Reserva;
+DROP INDEX IF EXISTS IX_Reserva_Paciente_Estado ON Reserva;
+DROP INDEX IF EXISTS IX_Reserva_IdTurno_Estado ON Reserva;
+
+-- =============================================
+-- CREAR ÍNDICES NUEVOS PARA RESERVA
+-- =============================================
+CREATE INDEX IX_Reserva_IdTurno_IdEstado 
+ON Reserva (id_turno, id_estado)
+INCLUDE (id_reserva);
+
+CREATE INDEX IX_Reserva_IdMotivoConsulta 
+ON Reserva (id_motivo_consulta)
+INCLUDE (id_turno, id_reserva);
+
+CREATE INDEX IX_Reserva_Paciente_Estado
+ON Reserva (id_paciente, id_estado)
+INCLUDE (id_turno, id_motivo_consulta, diagnostico);
+
+CREATE INDEX IX_Reserva_IdTurno_Estado
+ON Reserva (id_turno, id_estado)
+INCLUDE (id_paciente, id_motivo_consulta, diagnostico);
+
+-- =============================================
+-- ELIMINAR ÍNDICES EXISTENTES DE RESERVA
+-- =============================================
+DROP INDEX IF EXISTS IX_Reserva_IdTurno_IdEstado ON Reserva;
+DROP INDEX IF EXISTS IX_Reserva_IdMotivoConsulta ON Reserva;
+DROP INDEX IF EXISTS IX_Reserva_Paciente_Estado ON Reserva;
+DROP INDEX IF EXISTS IX_Reserva_IdTurno_Estado ON Reserva;
+
+-- =============================================
+-- CREAR ÍNDICES NUEVOS PARA RESERVA
+-- =============================================
+CREATE INDEX IX_Reserva_IdTurno_IdEstado 
+ON Reserva (id_turno, id_estado)
+INCLUDE (id_reserva);
+
+CREATE INDEX IX_Reserva_IdMotivoConsulta 
+ON Reserva (id_motivo_consulta)
+INCLUDE (id_turno, id_reserva);
+
+CREATE INDEX IX_Reserva_Paciente_Estado
+ON Reserva (id_paciente, id_estado)
+INCLUDE (id_turno, id_motivo_consulta, diagnostico);
+
+CREATE INDEX IX_Reserva_IdTurno_Estado
+ON Reserva (id_turno, id_estado)
+INCLUDE (id_paciente, id_motivo_consulta, diagnostico);
+
+-- =============================================
+-- ELIMINAR ÍNDICES EXISTENTES DE MOTIVO_CONSULTA
+-- =============================================
+DROP INDEX IF EXISTS IX_MotivoConsulta_Especialidad ON Motivo_Consulta;
+
+-- =============================================
+-- CREAR ÍNDICES NUEVOS PARA MOTIVO_CONSULTA
+-- =============================================
+CREATE INDEX IX_MotivoConsulta_Especialidad
+ON Motivo_Consulta (id_especialidad, descripcion);
+
+-- =============================================
+-- ELIMINAR ÍNDICES EXISTENTES DE TABLAS DE REFERENCIA
+-- =============================================
+DROP INDEX IF EXISTS IX_Rol_Nombre ON Rol;
+DROP INDEX IF EXISTS IX_Especialidad_Nombre ON Especialidad;
+DROP INDEX IF EXISTS IX_EstadoTurno_Nombre ON Estado_Turno;
+DROP INDEX IF EXISTS IX_EstadoReserva_Nombre ON Estado_Reserva;
+DROP INDEX IF EXISTS IX_Dia_Nombre ON Día;
+DROP INDEX IF EXISTS IX_ObraSocial_Nombre ON Obra_Social;
+
+-- =============================================
+-- CREAR ÍNDICES NUEVOS PARA TABLAS DE REFERENCIA
+-- =============================================
+CREATE INDEX IX_Rol_Nombre ON Rol(nombre);
+CREATE INDEX IX_Especialidad_Nombre ON Especialidad(nombre);
+CREATE INDEX IX_EstadoTurno_Nombre ON Estado_Turno(nombre);
+CREATE INDEX IX_EstadoReserva_Nombre ON Estado_Reserva(nombre);
+CREATE INDEX IX_Dia_Nombre ON Día(nombre);
+CREATE INDEX IX_ObraSocial_Nombre ON Obra_Social(nombre);
+
+-- =============================================
+-- ACTUALIZACIÓN DE ESTADÍSTICAS
+-- =============================================
+EXEC sp_updatestats;
+
+PRINT '✅ TODOS LOS ÍNDICES CREADOS EXITOSAMENTE';
+
+
+
+
+
+
 
 
 
