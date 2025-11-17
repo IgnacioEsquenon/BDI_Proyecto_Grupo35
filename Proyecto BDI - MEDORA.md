@@ -82,28 +82,28 @@ Se emplearon diversas herramientas para lograr el diseño y la gestión de la in
 
 En la siguiente imagen se puede visualizar el diagrama relacional de la base de datos con las entidades participantes, sus atributos y las relaciones entre ellas.
 
-\[diagrama\_relacional\](Doc/diagrama\_relacional.jpeg)
+![\[diagrama\_relacional\](Doc/diagrama\_relacional.jpeg)](https://github.com/IgnacioEsquenon/BDI_Proyecto_Grupo35/blob/main/Doc/diagrama_relacional.jpeg)
 
 ## Diccionario de datos:
 
 Es la herramienta que nos permite entender mejor a las entidades con sus comportamientos y restricciones.  
-Acceso al documento \[PDF\](Doc/diccionario\_datos.pdf) del diccionario de datos.
+Acceso al documento [\[PDF\]](https://github.com/IgnacioEsquenon/BDI_Proyecto_Grupo35/blob/main/Doc/diccionario_datos.pdf) del diccionario de datos.
 
 ## Desarrollo TEMA 1 "Procedimientos y funciones almacenadas"
 
-Acceder a la siguiente carpeta para la descripción completa del tema ![Procedimientos y funciones almacenadas\](Script/Tema01-Procedimientos y funciones almacenadas)
+Acceder a la siguiente carpeta para la descripción completa del tema [![Procedimientos y funciones almacenadas\]](https://github.com/IgnacioEsquenon/BDI_Proyecto_Grupo35/tree/main/Script/Tema01-Procedimientos%20y%20funciones%20almacenadas)
 
 ## Desarrollo TEMA 2 "Optimización de consultas a través de índices".
 
-Acceder a la siguiente carpeta para la descripción completa del tema \[Optimización de consultas a través de índices\](Script/Tema02-Optimización de consultas a través de índices)
+Acceder a la siguiente carpeta para la descripción completa del tema [\[Optimización de consultas a través de índices\]](https://github.com/IgnacioEsquenon/BDI_Proyecto_Grupo35/tree/main/Script/Tema02-Optimizaci%C3%B3n%20de%20consultas%20a%20trav%C3%A9s%20de%20%C3%ADndices)
 
 ## Desarrollo TEMA 3 "Manejo de transacciones y transacciones anidadas".
 
-Acceder a la siguiente carpeta para la descripción completa del tema \[Manejo de transacciones y transacciones anidadas\](Script/Tema03-Manejo de transacciones y transacciones anidadas)
+Acceder a la siguiente carpeta para la descripción completa del tema [\[Manejo de transacciones y transacciones anidadas\]](https://github.com/IgnacioEsquenon/BDI_Proyecto_Grupo35/tree/main/Script/Tema03-Manejo%20de%20transacciones%20y%20transacciones%20anidadas)
 
 ## Desarrollo TEMA 4 "Réplica de Base de Datos".
 
-Acceder a la siguiente carpeta para la descripción completa del tema \[Réplica de Base de Datos\](Script/Tema04-Réplica de Base de Datos)
+Acceder a la siguiente carpeta para la descripción completa del tema [\[Réplica de Base de Datos\]](https://github.com/IgnacioEsquenon/BDI_Proyecto_Grupo35/tree/main/Script/Tema04-R%C3%A9plica%20de%20Base%20de%20Datos)
 
 # CAPÍTULO V: CONCLUSIONES
 
