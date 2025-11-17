@@ -91,7 +91,7 @@ Acceso al documento \[PDF\](Doc/diccionario\_datos.pdf) del diccionario de datos
 
 ## Desarrollo TEMA 1 "Procedimientos y funciones almacenadas"
 
-Acceder a la siguiente carpeta para la descripción completa del tema \[Procedimientos y funciones almacenadas\](Script/Tema01-Procedimientos y funciones almacenadas)
+Acceder a la siguiente carpeta para la descripción completa del tema ![Procedimientos y funciones almacenadas\](Script/Tema01-Procedimientos y funciones almacenadas)
 
 ## Desarrollo TEMA 2 "Optimización de consultas a través de índices".
 
