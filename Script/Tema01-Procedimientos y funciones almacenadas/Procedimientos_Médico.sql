@@ -88,6 +88,32 @@
                     @IdMedico = 4,
                     @IdDia = 5; -- Viernes
                 */
+    --- f1.2: Función axuliar para el siguiente procedimiento, obtiene y devuelve la próxima fecha que coincida con el día proporcionado como parámetro
+                CREATE OR ALTER FUNCTION fn_ProximaFechaDelDia (
+                    @FechaInicio DATE,
+                    @IdDia INT
+                )
+                RETURNS DATE
+                AS
+                BEGIN
+                    DECLARE @Fecha DATE = @FechaInicio;
+                    DECLARE @ActualDia INT = DATEPART(WEEKDAY, @Fecha);
+                    
+                    IF @ActualDia = @IdDia
+                        RETURN @Fecha;
+                    
+                    DECLARE @DiasDiferencia INT = @IdDia - @ActualDia;
+                    
+                    -- Se calcula la diferencia para que llegue el día solicitado.
+                    IF @DiasDiferencia < 0
+                        -- Si la diferencia es negativa, significa que en esta semana ya pasó ese día,
+                        SET @DiasDiferencia = @DiasDiferencia + 7;
+                        -- si sumamos 7 a la diferencia negativa, nos devuelve la diferencia positiva que falta para el día solicitado.
+                    
+                    RETURN DATEADD(DAY, @DiasDiferencia, @Fecha);
+                    -- Asegurarnos que días de diferencia sea positiva, nos garantiza que al sumar esa diferencia de días a la fecha actual nos devuelva el próximo día que solicitamos en el futuro.
+                END;
+                GO
     --- 1.2: Procedimiento que calcula e inserta todos los turnos de un bloque dado.
                 CREATE OR ALTER PROCEDURE med_GenerarTurnosPorBloque
                     @IdBloque INT
@@ -95,51 +121,60 @@
                 BEGIN
                     SET NOCOUNT ON;
                     SET DATEFIRST 1;
-
-                    DECLARE 
-                        @FechaInicio DATE,
-                        @FechaFin DATE,
-                        @HoraInicio TIME,
-                        @HoraFin TIME,
-                        @DuracionTurnos INT,
-                        @IdMedico INT,
-                        @IdDia INT;
-
-                    SELECT 
-                        @FechaInicio = BH.fecha_inicio,
-                        @FechaFin = BH.fecha_fin,
-                        @HoraInicio = BH.hora_inicio,
-                        @HoraFin = BH.hora_fin,
-                        @DuracionTurnos = BH.duracion_turnos,
-                        @IdMedico = BH.id_medico,
-                        @IdDia = BH.id_dia
+                    
+                    DECLARE @FechaInicio DATE,
+                            @FechaFin DATE,
+                            @HoraInicio TIME,
+                            @HoraFin TIME,
+                            @DuracionTurnos INT,
+                            @IdMedico INT,
+                            @IdDia INT;
+                    
+                    SELECT @FechaInicio = BH.fecha_inicio,
+                           @FechaFin = BH.fecha_fin,
+                           @HoraInicio = BH.hora_inicio,
+                           @HoraFin = BH.hora_fin,
+                           @DuracionTurnos = BH.duracion_turnos,
+                           @IdMedico = BH.id_medico,
+                           @IdDia = BH.id_dia
                     FROM Bloque_Horario BH
                     WHERE BH.id_bloque = @IdBloque;
-
-                    DECLARE @FechaActual DATE = @FechaInicio;
-
-                    WHILE @FechaActual <= @FechaFin -- Este bucle itera de día en día, comenzando por @FechaInicio 
-                    BEGIN                           -- y continuando mientras la fecha actual sea anterior o igual a la fecha de fin del bloque @FechaFin.
-                        IF DATEPART(WEEKDAY, @FechaActual) = @IdDia -- Al avanzar entre día en día dentro del rango, compara si esa fecha es el día que fue seleccionado en el bloque.
+                    
+                    -- A partir de la fecha de inicio del bloque, se calcula la primera fecha que coincida
+                    -- exactamente con el día seleccionado en el bloque horario.
+                    -- Esto permite comenzar directamente desde la fecha relevante.
+                    DECLARE @FechaActual DATE = dbo.fn_ProximaFechaDelDia(@FechaInicio, @IdDia);
+                    
+                    WHILE @FechaActual <= @FechaFin
+                    -- Este bucle itera únicamente por fechas que coinciden con el día seleccionado para el bloque,
+                    BEGIN
+                    -- avanzando de a una semana completa por cada iteración (7 días exactos).
+                        DECLARE @HoraActual TIME = @HoraInicio;
+                        -- Se declara una variable para establecer el horario de asignación de inicio de cada turno.
+                        
+                        WHILE DATEADD(MINUTE, @DuracionTurnos, @HoraActual) <= @HoraFin
+                        -- Bucle que itera hasta que la suma entre la duración del turno
                         BEGIN
-                            DECLARE @HoraActual TIME = @HoraInicio; -- Se declara una variable para establecer el horario de asignación de inicio de cada turno.
-
-                            WHILE DATEADD(MINUTE, @DuracionTurnos, @HoraActual) <= @HoraFin -- Bucle que itera hasta que la suma entre la duración de turno
-                            BEGIN                                                           --  y la hora de inicio del turno tenga como resultado la hora de fin.
-                                INSERT INTO Turno (fecha_turno, hora_inicio, hora_fin, id_bloque, id_estado_turno)
-                                VALUES (
-                                    @FechaActual,
-                                    @HoraActual,
-                                    DATEADD(MINUTE, @DuracionTurnos, @HoraActual), -- La hora de fin es sumar la duración del turno a la hora actual de inicio de turno.
-                                    @IdBloque,
-                                    1 -- Los turnos se asignan con estado_turno = 1 (disponible)
-                                );
-                                SET @HoraActual = DATEADD(MINUTE, @DuracionTurnos, @HoraActual); -- Se modifica la hora actual de inicio de turno para que el fin de un turno sea el inicio de otro.
-                            END
+                        -- y la hora de inicio del turno tenga como resultado la hora de fin del bloque horario.
+                            INSERT INTO Turno (fecha_turno, hora_inicio, hora_fin, id_bloque, id_estado_turno)
+                            VALUES (
+                                @FechaActual,
+                                @HoraActual,
+                                DATEADD(MINUTE, @DuracionTurnos, @HoraActual), -- La hora de fin es sumar la duración del turno a la hora actual.
+                                @IdBloque,
+                                1 -- Los turnos se asignan con id_estado_turno = 1 (disponible).
+                            );
+                            
+                            SET @HoraActual = DATEADD(MINUTE, @DuracionTurnos, @HoraActual);
+                            -- Se modifica la hora de inicio del siguiente turno, para que el fin de un turno
                         END
-                        SET @FechaActual = DATEADD(DAY, 1, @FechaActual); -- Se modifica la fecha que recorre el bucle, que aumenta de 1 en 1
-                    END                                                   -- (Se puede optimzar para que se modifique de a 7, ya que pasan 7 días para que vuelva a coincidir un mismo día
-                END;                                                      --                      (importante saber que funcionaría solo luego de que la condición inicial sea verdadera)).
+                        -- sea automáticamente el inicio del siguiente.
+                        
+                        -- En lugar de avanzar día por día, se avanza directamente 7 días,
+                        -- ya que para volver a coincidir con el mismo día de la semana siempre transcurren exactamente 7 días.
+                        SET @FechaActual = DATEADD(DAY, 7, @FechaActual);
+                    END;
+                END;
                 GO
                 
     --- 1.3: Trigger que automatiza el proceso anterior, para que se realice cada vez que se inserta un nuevo bloque válido.
@@ -545,3 +580,4 @@
                     @FechaFin = '2025-11-30';
                 */
 --=====================================================================================================
+
