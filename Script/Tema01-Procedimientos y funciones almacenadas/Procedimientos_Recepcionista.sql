@@ -1,6 +1,6 @@
 
 ----- Procedimiento #03: Flujo de reservar turno ----------------------------------------------------
-    ----  3.1: Búsqueda de médico para reservar un turno
+    ----  3.1: BÃºsqueda de mÃ©dico para reservar un turno
               CREATE OR ALTER PROCEDURE rec_BuscarMedico
                     @IdEspecialidad INT = NULL,
                     @TextoBusquedaNombre VARCHAR(50) = NULL,
@@ -19,7 +19,7 @@
                     JOIN Especialidad E ON U.id_especialidad = E.id_especialidad
                     LEFT JOIN Motivo_Consulta MC ON MC.id_especialidad = U.id_especialidad
                     WHERE
-                        U.id_rol = 2 -- Médico
+                        U.id_rol = 2 -- MÃ©dico
                         AND (@IdEspecialidad IS NULL OR E.id_especialidad = @IdEspecialidad)
                         AND (
                             @TextoBusquedaNombre IS NULL
@@ -34,7 +34,7 @@
                 /* Ejemplo de primer paso:
                 EXEC rec_BuscarMedico @TextoBusquedaNombre = 'Mettini';
                 */
-    ---- 3.2: Mostrar turnos disponibles para un médico seleccionado con diferentes filtrados opcionales
+    ---- 3.2: Mostrar turnos disponibles para un mÃ©dico seleccionado con diferentes filtrados opcionales
                CREATE OR ALTER PROCEDURE rec_ObtenerTurnosDisponibles
                     @IdMedico INT,
                     @FechaInicio DATE = NULL,
@@ -47,12 +47,12 @@
                     SELECT
                         T.id_turno AS id_turno,
                         T.fecha_turno AS [Fecha del Turno],
-                        D.nombre AS Día,
+                        D.nombre AS DÃ­a,
                         T.hora_inicio AS [Hora de Inicio],
                         T.hora_fin as [Hora de Fin]
                     FROM Turno T
                     JOIN Bloque_Horario BH ON T.id_bloque = BH.id_bloque
-                    JOIN Día D ON BH.id_dia = D.id_dia
+                    JOIN DÃ­a D ON BH.id_dia = D.id_dia
                     JOIN Estado_Turno ET ON T.id_estado_turno = ET.id_estado_turno
                     WHERE
                         BH.id_medico = @IdMedico
@@ -69,12 +69,12 @@
                 /* Ejemplo de segundo paso:
                 DECLARE @IdMedico INT;
 
-                -- Asignamos a una variable el valor del médico que buscamos
+                -- Asignamos a una variable el valor del mÃ©dico que buscamos
                 SELECT @IdMedico = U.id_usuario 
                 FROM Usuario U 
                 WHERE UPPER(U.apellido) LIKE UPPER('mettini');
 
-                -- Pasamos esa variable como parámetro para el segundo paso del flujo
+                -- Pasamos esa variable como parÃ¡metro para el segundo paso del flujo
                 EXEC rec_ObtenerTurnosDisponibles
                     @IdMedico,
                     @FechaInicio = '2026-11-01',
@@ -82,7 +82,7 @@
                     @IdDia = NULL;
                 */
 
-    ---- 3.3: Función que inserta la reserva, cambiando el estado de turno a ocupado
+    ---- 3.3: FunciÃ³n que inserta la reserva, cambiando el estado de turno a ocupado
               CREATE OR ALTER PROCEDURE rec_RegistrarReserva
                     @IdTurno INT,
                     @IdPaciente INT,
@@ -91,10 +91,10 @@
                 BEGIN
                     SET NOCOUNT ON;
 
-                    -- Validar que el turno esté disponible
+                    -- Validar que el turno estÃ© disponible
                     IF NOT EXISTS (SELECT 1 FROM Turno WHERE id_turno = @IdTurno AND id_estado_turno = 1)
                     BEGIN
-                        RAISERROR('El turno no está disponible o ya fue reservado.', 16, 1);
+                        RAISERROR('El turno no estÃ¡ disponible o ya fue reservado.', 16, 1);
                         RETURN;
                     END;
 
@@ -116,7 +116,7 @@
                     MC.descripcion
                 FROM Motivo_Consulta MC
                 JOIN Usuario U ON MC.id_especialidad = U.id_especialidad
-                WHERE UPPER(U.apellido) LIKE UPPER('Mettini'); -- Para ver qué posibles motivos de consulta se le pueden asignar al paciente
+                WHERE UPPER(U.apellido) LIKE UPPER('Mettini'); -- Para ver quÃ© posibles motivos de consulta se le pueden asignar al paciente
 
                 EXEC rec_RegistrarReserva
                     @IdTurno = 7,
@@ -149,7 +149,7 @@
                         T.fecha_turno >= CAST(GETDATE() AS DATE)
                         AND (
                             @Filtro IS NULL 
-                            OR UPPER(P.nombre) + ' ' + UPPER(P.apellido) LIKE '%' + UPPER(@Filtro) + '%'                                                                     --                                                        JUAN LIKE %JUAN% (Esto evalúa true y va a estar en la lista)
+                            OR UPPER(P.nombre) + ' ' + UPPER(P.apellido) LIKE '%' + UPPER(@Filtro) + '%'                                                                     --                                                        JUAN LIKE %JUAN% (Esto evalÃºa true y va a estar en la lista)
                             OR P.dni LIKE '%' + @Filtro + '%'
                         )
                     ORDER BY T.fecha_turno ASC, T.hora_inicio ASC;
@@ -188,7 +188,7 @@
                     SET id_estado_turno = 1
                     WHERE id_turno = @IdTurno;
 
-                    PRINT 'La reserva fue cancelada correctamente y el turno se liberó.';
+                    PRINT 'La reserva fue cancelada correctamente y el turno se liberÃ³.';
                 END;
                 GO
 
@@ -196,51 +196,79 @@
                 EXEC rec_CancelarReserva
                     @IdReserva = 8;
                 */
+-------------------------------------------------------------------------------------------------------
+--- f6: FunciÃ³n auxuliar para el siguiente procedimiento que calcula y devuelve la edad exacta en aÃ±os de un paciente, en base a su fecha de nacimiento.
+                CREATE OR ALTER FUNCTION fn_CalcularEdad
+                (
+                    @FechaNacimiento DATE
+                )
+                RETURNS INT
+                AS
+                BEGIN
+                    DECLARE @Edad INT;
+                
+                    SET @Edad = DATEDIFF(YEAR, @FechaNacimiento, GETDATE());
+                
+                    IF (MONTH(@FechaNacimiento) > MONTH(GETDATE()))
+                        OR (MONTH(@FechaNacimiento) = MONTH(GETDATE()) 
+                            AND DAY(@FechaNacimiento) > DAY(GETDATE()))
+                    BEGIN
+                        SET @Edad = @Edad - 1;
+                    END;
+                
+                    RETURN @Edad;
+                END;
+                GO
                     
 -------------------------------------------------------------------------------------------------------
---- Procedimiento #06: Procedimiento que muestra estadísticas generales sobre los pacientes que realizaron
-                    -- reservas dentro de un rango de fechas determinado. Incluye promedio de edad, distribución etaria
+--- Procedimiento #06: Procedimiento que muestra estadÃ­sticas generales sobre los pacientes que realizaron
+                    -- reservas dentro de un rango de fechas determinado. Incluye promedio de edad, distribuciÃ³n etaria
                     -- y porcentaje de pacientes con o sin obra social.
-                CREATE OR ALTER PROCEDURE rec_EstadisticaPacientes
+               CREATE OR ALTER PROCEDURE rec_EstadisticaPacientes
                     @FechaInicio DATE,
                     @FechaFin DATE
                 AS
                 BEGIN
                     SET NOCOUNT ON;
-
-                    -- 1) Descripción general:
+                
+                    -- 1) DescripciÃ³n general:
                     -- Este procedimiento analiza el perfil poblacional de los pacientes que realizaron reservas
                     -- dentro del rango de fechas establecido. Se calcula:
                     --  - Promedio de edad
-                    --  - Distribución por rangos de edad (menores, adultos, mayores)
+                    --  - DistribuciÃ³n por rangos de edad (menores, adultos, mayores)
                     --  - Porcentaje de pacientes con y sin obra social.
-
-                    -- 2) CTE: obtener pacientes únicos con reserva en el rango.
+                
+                    -- 2) CTE: obtener pacientes Ãºnicos con reserva en el rango.
                     WITH PacientesReserva AS (
                         SELECT DISTINCT
                             P.id_paciente,
                             P.fecha_nacimiento,
                             P.id_obra_social,
-                            DATEDIFF(YEAR, P.fecha_nacimiento, GETDATE()) AS Edad
+                            dbo.fn_CalcularEdad(P.fecha_nacimiento) AS Edad
                         FROM Paciente P
                         INNER JOIN Reserva R ON P.id_paciente = R.id_paciente
                         INNER JOIN Turno T ON R.id_turno = T.id_turno
                         WHERE T.fecha_turno BETWEEN @FechaInicio AND @FechaFin
                     )
-
-                    -- 3) Cálculo de agregados principales
+                
+                    -- 3) CÃ¡lculo de agregados principales
                     SELECT
-                        CAST(AVG(Edad * 1.0) AS DECIMAL(5,2))                                            AS [Promedio de Edad],
-                        SUM(CASE WHEN Edad < 18 THEN 1 ELSE 0 END)                                          AS [Menores (<18)],
-                        SUM(CASE WHEN Edad BETWEEN 18 AND 64 THEN 1 ELSE 0 END)                             AS [Adultos (18-64)],
-                        SUM(CASE WHEN Edad >= 65 THEN 1 ELSE 0 END)                                         AS [Mayores (65+)],
-                        CAST(SUM(CASE WHEN Edad < 18 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS DECIMAL(5,2))              AS [Porcentaje de Menores],
-                        CAST(SUM(CASE WHEN Edad BETWEEN 18 AND 64 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS DECIMAL(5,2)) AS [Porcentaje de Adultos],
-                        CAST(SUM(CASE WHEN Edad >= 65 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS DECIMAL(5,2))             AS [Porcentaje de Mayores],
-                        SUM(CASE WHEN id_obra_social IS NOT NULL THEN 1 ELSE 0 END)                                          AS [Pacientes con Obra Social],
-                        SUM(CASE WHEN id_obra_social IS NULL THEN 1 ELSE 0 END)                                              AS [Pacientes sin Obra Social],
-                        CAST(SUM(CASE WHEN id_obra_social IS NOT NULL THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS DECIMAL(5,2)) AS [Porcentaje Con Obra Social],
-                        CAST(SUM(CASE WHEN id_obra_social IS NULL THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS DECIMAL(5,2))     AS [Porcentaje Sin Obra Social]
+                        ISNULL(CAST(AVG(Edad * 1.0) AS DECIMAL(5,2)), 0.00) AS [Promedio de Edad],
+                        
+                        ISNULL(SUM(CASE WHEN Edad < 18 THEN 1 ELSE 0 END), 0) AS [Menores (<18)],
+                        ISNULL(SUM(CASE WHEN Edad BETWEEN 18 AND 64 THEN 1 ELSE 0 END), 0) AS [Adultos (18-64)],
+                        ISNULL(SUM(CASE WHEN Edad >= 65 THEN 1 ELSE 0 END), 0) AS [Mayores (65+)],
+                        
+                        ISNULL(CAST(SUM(CASE WHEN Edad < 18 THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0) AS DECIMAL(5,2)), 0.00) AS [Porcentaje de Menores],
+                        ISNULL(CAST(SUM(CASE WHEN Edad BETWEEN 18 AND 64 THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0) AS DECIMAL(5,2)), 0.00) AS [Porcentaje de Adultos],
+                        ISNULL(CAST(SUM(CASE WHEN Edad >= 65 THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0) AS DECIMAL(5,2)), 0.00) AS [Porcentaje de Mayores],
+                        
+                        ISNULL(SUM(CASE WHEN id_obra_social IS NOT NULL THEN 1 ELSE 0 END), 0) AS [Pacientes con Obra Social],
+                        ISNULL(SUM(CASE WHEN id_obra_social IS NULL THEN 1 ELSE 0 END), 0) AS [Pacientes sin Obra Social],
+                        
+                        ISNULL(CAST(SUM(CASE WHEN id_obra_social IS NOT NULL THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0) AS DECIMAL(5,2)), 0.00) AS [Porcentaje Con Obra Social],
+                        ISNULL(CAST(SUM(CASE WHEN id_obra_social IS NULL THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0) AS DECIMAL(5,2)), 0.00) AS [Porcentaje Sin Obra Social]
+                
                     FROM PacientesReserva;
                 END;
                 GO
@@ -251,9 +279,9 @@
                     @FechaFin = '2025-11-30';
                 */
 -------------------------------------------------------------------------------------------------------
---- Procedimiento #07: Procedimiento que muestra el ranking de las obras sociales más utilizadas
+--- Procedimiento #07: Procedimiento que muestra el ranking de las obras sociales mÃ¡s utilizadas
                     -- por los pacientes que realizaron reservas dentro de un rango de fechas, indicando su
-                    -- participación porcentual respecto al total de pacientes con obra social.
+                    -- participaciÃ³n porcentual respecto al total de pacientes con obra social.
                 CREATE OR ALTER PROCEDURE rec_EstadisticaObrasSociales
                     @FechaInicio DATE,
                     @FechaFin DATE
@@ -261,8 +289,8 @@
                 BEGIN
                     SET NOCOUNT ON;
 
-                    -- 1) Descripción general:
-                    -- Este procedimiento analiza la distribución de los pacientes con obra social
+                    -- 1) DescripciÃ³n general:
+                    -- Este procedimiento analiza la distribuciÃ³n de los pacientes con obra social
                     -- que realizaron reservas dentro del rango de fechas indicado.
                     -- Devuelve un ranking de obras sociales y su porcentaje sobre el total.
 
@@ -295,4 +323,5 @@
                     @FechaInicio = '2025-11-01',
                     @FechaFin = '2025-11-30';
                 */
+
 -------------------------------------------------------------------------------------------------------
