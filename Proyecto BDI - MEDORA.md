@@ -108,7 +108,20 @@ Acceder a la siguiente carpeta para la descripción completa del tema [\[Réplic
 # CAPÍTULO V: CONCLUSIONES
 
 ## Conclusión tema 1 ”Procedimientos y funciones almacenadas”: 
+La ejecución mediante procedimientos y funciones almacenadas ofrece una arquitectura más robusta, segura y eficiente para el manejo de datos.
+Mientras que las sentencias manuales brindan flexibilidad, suelen producir:
+* menor rendimiento,
+* duplicación de lógica,
+* mayor probabilidad de errores,
+* y riesgos de seguridad.
 
+En cambio, las rutinas almacenadas:
+* **mejoran el rendimiento** gracias a la precompilación,
+* **centralizan y estandarizan la lógica de negocio**,
+* **incrementan la seguridad** evitando acceso directo a las tablas,
+* y **simplifican el mantenimiento** para sistemas en crecimiento.
+
+Por estos motivos, constituyen la opción profesional más adecuada para sistemas que requieren integridad, rendimiento y escalabilidad, como un software de gestión de turnos médicos.
 ## Conclusión tema 2 “Optimización de consultas a través de índices”:
 
 ## Conclusión tema 3 “Manejo de transacciones y transacciones anidadas”:
