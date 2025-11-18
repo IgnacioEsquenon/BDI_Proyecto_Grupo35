@@ -16,7 +16,7 @@ DECLARE @hora_fin TIME(7)
 DECLARE @id_medico INT
 DECLARE @id_dia INT
 
--- Atributos auxiliares para cálculos de tiempo
+-- Atributos auxiliares para cÃ¡lculos de tiempo
 DECLARE @minutos_inicio_base INT
 DECLARE @duracion_total_minutos INT
 
@@ -27,7 +27,7 @@ BEGIN
     SET @fecha_inicio = DATEADD(DAY, ABS(CHECKSUM(NEWID())) % 1825, '2020-01-01')
 
     -- Fecha Fin: Estrictamente mayor a fecha_inicio
-    -- Sumamos al menos 1 día (del 1 al 10) a la fecha de inicio
+    -- Sumamos al menos 1 dÃ­a (del 1 al 10) a la fecha de inicio
     SET @fecha_fin = DATEADD(DAY, (ABS(CHECKSUM(NEWID())) % 10) + 1, @fecha_inicio)
 
 
@@ -97,10 +97,10 @@ EXEC sp_helpindex 'Bloque_Horario2'
 
 --The object 'Bloque_Horario2' does not have any indexes, or you do not have permissions.
 
--- Activamos las estadisticas de tiempo de ejecución de cpu y tiempo total
+-- Activamos las estadisticas de tiempo de ejecuciÃ³n de cpu y tiempo total
 SET STATISTICS TIME ON;
 
---Realizamos una búsqueda por perídos en la tabla sin índices
+--Realizamos una bÃºsqueda por perÃ­dos en la tabla sin Ã­ndices
 SELECT *
 FROM Bloque_Horario2
 WHERE fecha_inicio between '20210101' AND '20241031'
@@ -109,7 +109,7 @@ WHERE fecha_inicio between '20210101' AND '20241031'
 /*  SQL Server Execution Times:
    CPU time = 1719 ms,  elapsed time = 1201 ms.*/
 
---Creamos un índice agrupado en la tabla auxiliar sobre la columna fecha_inicio
+--Creamos un Ã­ndice agrupado en la tabla auxiliar sobre la columna fecha_inicio
 CREATE CLUSTERED INDEX IX_fecha_inicio
 ON Bloque_Horario2 (fecha_inicio)
 
@@ -122,12 +122,12 @@ WHERE fecha_inicio between '20210101' AND '20241031'
    CPU time = 797 ms,  elapsed time = 887 ms.*/
 
 
--- Eliminamos el índice que creamos
+-- Eliminamos el Ã­ndice que creamos
 DROP INDEX IX_fecha_inicio
 ON Bloque_Horario2;
 
 
--- Creamos otro índice sobre la columna fecha incluyento columnas seleccionadas
+-- Creamos otro Ã­ndice sobre la columna fecha incluyento columnas seleccionadas
 CREATE CLUSTERED INDEX IX_fecha_inicio
 ON Bloque_Horario2 (fecha_inicio, id_bloque, fecha_fin, hora_inicio, hora_fin, duracion_turnos, activo, id_medico, id_dia)
 
