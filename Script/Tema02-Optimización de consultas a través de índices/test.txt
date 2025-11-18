@@ -1,385 +1,859 @@
-INVESTIGACIÓN COMPLETA: OPTIMIZACIÓN DE ÍNDICES EN BASES DE DATOS
-1. INTRODUCCIÓN A LA OPTIMIZACIÓN DE ÍNDICES
-1.1 ¿Qué es un Índice?
-Un índice es una estructura de datos que mejora la velocidad de las operaciones de recuperación en una tabla de base de datos a costa de escrituras adicionales y almacenamiento adicional.
-
-Analogía: Similar al índice de un libro que te permite encontrar información rápidamente sin leer todas las páginas.
-
-1.2 Importancia de la Optimización
-Rendimiento: Consultas más rápidas
-
-Escalabilidad: Mejor manejo de grandes volúmenes de datos
-
-Eficiencia: Reducción de consumo de recursos
-
-Experiencia de usuario: Respuestas más rápidas
-
-2. TIPOS DE ÍNDICES EN SQL SERVER
-2.1 Índices Agrupados (Clustered)
-
-CREATE CLUSTERED INDEX idx_nombre ON tabla(columna);
-
-Características:
-
-Define el orden físico de almacenamiento de los datos
-
-Solo puede existir uno por tabla
-
-Ideal para columnas frecuentemente usadas en rangos
-
-Mejora operaciones: BETWEEN, >, <, ORDER BY
-
-
-2.2 Índices No Agrupados (Non-Clustered)
-
-CREATE NONCLUSTERED INDEX idx_nombre ON tabla(columna);
-
-Características:
-
-Estructura separada de los datos
-
-Puede haber múltiples por tabla
-
-Contiene punteros a los datos reales
-
-Ideal para búsquedas puntuales
-
-2.3 Índices Únicos
-
-CREATE UNIQUE INDEX idx_nombre ON tabla(columna);
-
-Garantiza unicidad de valores
-
-Puede ser clustered o non-clustered
-
-2.4 Índices Compuestos
-
-CREATE INDEX idx_compuesto ON tabla(col1, col2, col3);
-
-Múltiples columnas en un solo índice
-
-Orden de columnas es CRITICO
-
-2.5 Índices con Columnas Incluidas
-
-CREATE INDEX idx_incluye ON tabla(columna_clave) 
-INCLUDE (columna1, columna2);
-
-Columnas incluidas no participan en búsquedas
-
-Reducen operaciones de lookup
-
-Mejoran consultas que solo leen datos
-
-2.6 Índices Filtrados
-
-CREATE INDEX idx_filtrado ON tabla(columna)
-WHERE condicion;
-
-Índices parciales para subconjuntos de datos
-
-Reducen tamaño y mantenimiento
-
-Ideales para datos con baja selectividad
-
-3. ESTRATEGIAS DE OPTIMIZACIÓN
-3.1 Selección de Columnas para Indexar
-Columnas Candidatas Ideales:
-✅ Claves primarias y foráneas
-
-✅ Columnas en cláusulas WHERE
-
-✅ Columnas en JOINs
-
-✅ Columnas en ORDER BY, GROUP BY
-
-✅ Columnas con alta selectividad (muchos valores únicos)
-
-
-Columnas a Evitar:
-*  Columnas con baja selectividad (pocos valores distintos)
-
-*  Columnas de texto muy largas
-
-*  Columnas raramente usadas en consultas
-
-*  Demasiadas columnas en un índice
-
-3.2 Regla del 20/80 para Índices
-20% de índices cubren 80% de las consultas
-
-Enfocarse en consultas críticas y frecuentes
-
-Evitar la sobre-indexación
-
-3.3 Consideraciones de Rendimiento
-Beneficios:
-Búsquedas más rápidas
-
-Mejor ordenamiento
-
-Agrupaciones eficientes
-
-Costos:
-Espacio en disco
-
-Overhead en INSERTS, UPDATES, DELETES
-
-Mantenimiento periódico requerido
-
-
-4. TÉCNICAS AVANZADAS DE OPTIMIZACIÓN
-4.1 Análisis de Plan de Ejecución
-
--- Habilitar estadísticas de tiempo
-SET STATISTICS TIME ON;
-
--- Habilitar estadísticas de E/S  
-SET STATISTICS IO ON;
-
--- Ver plan de ejecución
-SELECT * FROM tabla WHERE columna = valor;
-
-4.2 Identificación de Índices Faltantes
-
--- Consultas que podrían beneficiarse de índices
+USE MedoraDB;
+GO
+
+PRINT '=== INICIANDO GENERACIÓN DE DATOS DE PRUEBA ===';
+PRINT 'Generando: 500 médicos + 5,000 pacientes + 50,000 turnos + 30,000 reservas';
+GO
+
+-- =============================================
+-- 1. GENERAR ESPECIALIDADES DE PRUEBA (Si no existen)
+-- =============================================
+PRINT '1. Configurando especialidades...';
+
+IF NOT EXISTS (SELECT 1 FROM Especialidad WHERE nombre = 'Cardiología')
+INSERT INTO Especialidad (nombre) VALUES 
+('Cardiología'), ('Pediatría'), ('Dermatología'), ('Ginecología'), ('Traumatología'),
+('Oftalmología'), ('Neurología'), ('Psiquiatría'), ('Endocrinología'), ('Gastroenterología');
+GO
+
+-- =============================================
+-- 2. GENERAR 500 MÉDICOS
+-- =============================================
+PRINT '2. Generando 500 médicos...';
+
+-- Insertar médicos con nombres realistas
+INSERT INTO Usuario (nombre, apellido, dni, email, telefono, contraseña_hash, id_rol, id_especialidad)
 SELECT 
-    migs.avg_total_user_cost * (migs.avg_user_impact / 100.0) * (migs.user_seeks + migs.user_scans) AS improvement_measure,
-    mid.statement,
-    mid.equality_columns,
-    mid.inequality_columns, 
-    mid.included_columns
-FROM sys.dm_db_missing_index_groups mig
-INNER JOIN sys.dm_db_missing_index_group_stats migs ON migs.group_handle = mig.index_group_handle
-INNER JOIN sys.dm_db_missing_index_details mid ON mig.index_handle = mid.index_handle
-ORDER BY improvement_measure DESC;
+    nombres.nombre,
+    apellidos.apellido,
+    RIGHT('00000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR(8)), 8) AS dni,
+    LOWER(nombres.nombre + '.' + apellidos.apellido + CAST(ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS VARCHAR(3)) + '@clinica.com') AS email,
+    '11' + RIGHT('00000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR(8)), 8) AS telefono,
+    CONVERT(VARCHAR(64), HASHBYTES('SHA2_256', 'password123'), 2) AS contraseña_hash,
+    2 AS id_rol, -- Rol médico
+    (ABS(CHECKSUM(NEWID())) % 10) + 1 AS id_especialidad
+FROM 
+    (VALUES 
+        ('Carlos'), ('María'), ('José'), ('Ana'), ('Luis'), ('Laura'), ('Miguel'), ('Elena'),
+        ('Javier'), ('Carmen'), ('David'), ('Isabel'), ('Francisco'), ('Patricia'), ('Juan'),
+        ('Rosa'), ('Antonio'), ('Marta'), ('Pedro'), ('Sofia'), ('Alejandro'), ('Lucía'),
+        ('Daniel'), ('Paula'), ('Manuel'), ('Cristina'), ('Jorge'), ('Eva'), ('Fernando'),
+        ('Teresa'), ('Roberto'), ('Nuria'), ('Alberto'), ('Silvia'), ('Raúl'), ('Olga'),
+        ('Sergio'), ('Beatriz'), ('Víctor'), ('Clara'), ('Pablo'), ('Raquel'), ('Rubén'),
+        ('Monica'), ('Adrián'), ('Lorena'), ('Joaquín'), ('Alicia'), ('Iván'), ('Natalia')
+    ) AS nombres(nombre)
+CROSS JOIN 
+    (VALUES 
+        ('García'), ('Rodríguez'), ('González'), ('Fernández'), ('López'), ('Martínez'),
+        ('Sánchez'), ('Pérez'), ('Gómez'), ('Martín'), ('Jiménez'), ('Ruiz'), ('Hernández'),
+        ('Díaz'), ('Moreno'), ('Álvarez'), ('Romero'), ('Alonso'), ('Gutiérrez'), ('Navarro'),
+        ('Torres'), ('Domínguez'), ('Vázquez'), ('Ramos'), ('Gil'), ('Ramírez'), ('Serrano'),
+        ('Blanco'), ('Molina'), ('Morales'), ('Suárez'), ('Ortega'), ('Delgado'), ('Castro'),
+        ('Ortiz'), ('Rubio'), ('Marín'), ('Sanz'), ('Núñez'), ('Iglesias'), ('Medina'),
+        ('Garrido'), ('Cortés'), ('Castillo'), ('Santos'), ('Lozano'), ('Guerrero'), ('Cano'),
+        ('Prieto'), ('Méndez'), ('Cruz'), ('Calvo'), ('Vidal'), ('León'), ('Márquez'),
+        ('Peña'), ('Cabrera'), ('Flores'), ('Campos'), ('Vega'), ('Fuentes'), ('Carrasco'),
+        ('Diez'), ('Reyes'), ('Caballero'), ('Nieto'), ('Aguilar'), ('Pascual'), ('Santana'),
+        ('Herrera'), ('Montero'), ('Lorenzo'), ('Hidalgo'), ('Giménez'), ('Ibáñez'), ('Ferrer'),
+        ('Durán'), ('Santiago'), ('Benítez'), ('Mora'), ('Vicente'), ('Rivas'), ('Silva')
+    ) AS apellidos(apellido)
+WHERE (SELECT COUNT(*) FROM Usuario WHERE id_rol = 2) < 500;
+GO
 
-4.3 Monitoreo de Uso de Índices
+-- =============================================
+-- 0. CREAR OBRAS SOCIALES PRIMERO
+-- =============================================
+PRINT '0. Creando obras sociales...';
 
--- Índices no utilizados
+IF NOT EXISTS (SELECT 1 FROM Obra_Social WHERE nombre = 'OSDE')
+INSERT INTO Obra_Social (nombre) VALUES 
+('OSDE'), ('Swiss Medical'), ('Galeno'), ('Medifé'), ('Omint'),
+('Particular'); -- NULL para pacientes sin obra social
+GO
+
+
+-- =============================================
+-- 3. GENERAR 5,000 PACIENTES
+-- =============================================
+PRINT '3. Generando 5,000 pacientes...';
+
+INSERT INTO Paciente (nombre, apellido, dni, email, telefono, id_obra_social)
 SELECT 
-    o.name AS table_name,
-    i.name AS index_name,
-    i.type_desc,
-    us.user_seeks,
-    us.user_scans, 
-    us.user_lookups,
-    us.user_updates
-FROM sys.dm_db_index_usage_stats us
-INNER JOIN sys.indexes i ON us.object_id = i.object_id AND us.index_id = i.index_id
-INNER JOIN sys.objects o ON us.object_id = o.object_id
-WHERE us.database_id = DB_ID()
-    AND o.type = 'U'  -- Tablas de usuario
-    AND us.user_seeks = 0 
-    AND us.user_scans = 0
-    AND us.user_lookups = 0;
+    nombres.nombre,
+    apellidos.apellido,
+    RIGHT('00000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR(8)), 8) AS dni,
+    LOWER(nombres.nombre + '.' + apellidos.apellido + CAST(ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS VARCHAR(4)) + '@gmail.com') AS email,
+    '11' + RIGHT('00000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR(8)), 8) AS telefono,
+    CASE WHEN ABS(CHECKSUM(NEWID())) % 4 = 0 THEN NULL 
+         ELSE (ABS(CHECKSUM(NEWID())) % 5) + 1 
+    END AS id_obra_social
+FROM 
+    (VALUES 
+        ('Lucas'), ('Valentina'), ('Mateo'), ('Sofía'), ('Benjamín'), ('Emma'), ('Thiago'),
+        ('Mía'), ('Santiago'), ('Isabella'), ('Tomás'), ('Camila'), ('Joaquín'), ('Lucía'),
+        ('Nicolás'), ('Martina'), ('Samuel'), ('Julia'), ('Diego'), ('Paula'), ('Daniel'),
+        ('Alejandra'), ('Ángel'), ('Renata'), ('Gabriel'), ('Antonella'), ('Emiliano'),
+        ('Victoria'), ('Adrián'), ('Ximena'), ('Maximiliano'), ('Luna'), ('Leonardo'),
+        ('Catalina'), ('Bruno'), ('Florencia'), ('Julián'), ('Agustina'), ('Gonzalo'),
+        ('Rocío'), ('Rodrigo'), ('Mariana'), ('Francisco'), ('Candela'), ('Lautaro'),
+        ('Bianca'), ('Matías'), ('Jimena'), ('Ignacio'), ('Carolina'), ('Esteban'), ('Delfina'),
+        ('Rafael'), ('Julieta'), ('Óscar'), ('Abril'), ('Héctor'), ('Guadalupe'), ('Ricardo'),
+        ('Olivia'), ('Sebastián'), ('Valeria'), ('César'), ('Regina'), ('Alfonso'), ('Ana Sofía'),
+        ('Hugo'), ('Emilia'), ('Marcos'), ('Clara'), ('Andrés'), ('Elena'), ('Simón'), ('Noelia'),
+        ('Felipe'), ('Zoe'), ('Alexis'), ('Lola'), ('Iker'), ('Aitana'), ('Jesús'), ('Alma'),
+        ('Óliver'), ('Laia'), ('Jaime'), ('Triana'), ('Mario'), ('Celia'), ('Enzo'), ('Nerea'),
+        ('Amir'), ('Irene'), ('Eric'), ('Carla'), ('Yahir'), ('Mara'), ('Dylan'), ('Lia'),
+        ('Alan'), ('Vera'), ('Aaron'), ('Elsa'), ('Adam'), ('Nadia'), ('Nil'), ('Cloe')
+    ) AS nombres(nombre)
+CROSS JOIN 
+    (VALUES 
+        ('García'), ('Rodríguez'), ('González'), ('Fernández'), ('López'), ('Martínez'),
+        ('Sánchez'), ('Pérez'), ('Gómez'), ('Martín'), ('Jiménez'), ('Ruiz'), ('Hernández'),
+        ('Díaz'), ('Moreno'), ('Muñoz'), ('Álvarez'), ('Romero'), ('Alonso'), ('Gutiérrez'),
+        ('Navarro'), ('Torres'), ('Domínguez'), ('Vázquez'), ('Ramos'), ('Gil'), ('Ramírez'),
+        ('Serrano'), ('Blanco'), ('Suárez'), ('Molina'), ('Morales'), ('Ortega'), ('Delgado'),
+        ('Castro'), ('Ortiz'), ('Rubio'), ('Marín'), ('Sanz'), ('Núñez'), ('Iglesias'),
+        ('Medina'), ('Garrido'), ('Cortés'), ('Castillo'), ('Santos'), ('Lozano'), ('Guerrero'),
+        ('Cano'), ('Prieto'), ('Méndez'), ('Cruz'), ('Calvo'), ('Vidal'), ('León'), ('Márquez'),
+        ('Peña'), ('Cabrera'), ('Flores'), ('Campos'), ('Vega'), ('Fuentes'), ('Carrasco'),
+        ('Reyes'), ('Diez'), ('Caballero'), ('Herrera'), ('Aguilar'), ('Pascual'), ('Santana'),
+        ('Lorenzo'), ('Montero'), ('Hidalgo'), ('Giménez'), ('Ibáñez'), ('Ferrer'), ('Durán'),
+        ('Santiago'), ('Benítez'), ('Mora'), ('Vicente'), ('Rivas'), ('Silva'), ('Velasco'),
+        ('Moya'), ('Soler'), ('Parra'), ('Esteban'), ('Bravo'), ('Gallardo'), ('Rojas')
+    ) AS apellidos(apellido)
+WHERE (SELECT COUNT(*) FROM Paciente) < 5000;
+GO
 
-4.4 Mantenimiento de Índices
+PRINT '? Datos básicos generados. Continuando con turnos y reservas...';
 
--- Reorganizar índice (operación en línea)
-ALTER INDEX idx_nombre ON tabla REORGANIZE;
 
--- Reconstruir índice 
-ALTER INDEX idx_nombre ON tabla REBUILD;
+-- Verificar qué obras sociales existen
+SELECT id_obra_social, nombre 
+FROM Obra_Social 
+ORDER BY id_obra_social;
 
--- Actualizar estadísticas
-UPDATE STATISTICS tabla WITH FULLSCAN;
 
-5. MEJORES PRÁCTICAS Y PATRONES
-5.1 Patrones de Diseño de Índices
-Patrón 1: Índices Covering
+USE Medora;
+GO
 
--- Índice que cubre toda la consulta
-CREATE INDEX idx_covering ON Orders(CustomerID, OrderDate)
-INCLUDE (TotalAmount, Status);
+PRINT '=== GENERANDO 5,000 PACIENTES (CON OBRAS SOCIALES REALES) ===';
+GO
 
--- Índice que cubre toda la consulta
-CREATE INDEX idx_covering ON Orders(CustomerID, OrderDate)
-INCLUDE (TotalAmount, Status);
+-- =============================================
+-- GENERAR 5,000 PACIENTES (VERSIÓN FINAL)
+-- =============================================
+PRINT 'Generando 5,000 pacientes...';
 
-Patrón 2: Índices para Búsquedas por Rango
+-- Eliminar pacientes existentes si los hay para evitar duplicados
+DELETE FROM Paciente WHERE id_paciente > 0;
+PRINT '? Pacientes anteriores eliminados';
 
--- Optimizado para BETWEEN y operadores de comparación
-CREATE INDEX idx_fechas ON Ventas(FechaVenta, ProductoID);
+-- Insertar 5,000 pacientes con IDs de obras sociales válidos (1-4)
+INSERT INTO Paciente (nombre, apellido, dni, email, telefono, id_obra_social)
+SELECT TOP 5000
+    nombres.nombre,
+    apellidos.apellido,
+    RIGHT('00000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR(8)), 8) AS dni,
+    LOWER(nombres.nombre + '.' + apellidos.apellido + CAST(ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS VARCHAR(4)) + '@gmail.com') AS email,
+    '11' + RIGHT('00000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR(8)), 8) AS telefono,
+    CASE 
+        WHEN ABS(CHECKSUM(NEWID())) % 4 = 0 THEN NULL  -- 25% sin obra social
+        ELSE (ABS(CHECKSUM(NEWID())) % 4) + 1  -- 1-4 (IOSCOR, PAMI, OSDE, SWISS MEDICAL)
+    END AS id_obra_social
+FROM 
+    (VALUES 
+        ('Lucas'), ('Valentina'), ('Mateo'), ('Sofía'), ('Benjamín'), ('Emma'), ('Thiago'),
+        ('Mía'), ('Santiago'), ('Isabella'), ('Tomás'), ('Camila'), ('Joaquín'), ('Lucía'),
+        ('Nicolás'), ('Martina'), ('Samuel'), ('Julia'), ('Diego'), ('Paula'), ('Daniel'),
+        ('Alejandra'), ('Ángel'), ('Renata'), ('Gabriel'), ('Antonella'), ('Emiliano'),
+        ('Victoria'), ('Adrián'), ('Ximena'), ('Maximiliano'), ('Luna'), ('Leonardo'),
+        ('Catalina'), ('Bruno'), ('Florencia'), ('Julián'), ('Agustina'), ('Gonzalo'),
+        ('Rocío'), ('Rodrigo'), ('Mariana'), ('Francisco'), ('Candela'), ('Lautaro'),
+        ('Bianca'), ('Matías'), ('Jimena'), ('Ignacio'), ('Carolina'), ('Esteban'), ('Delfina'),
+        ('Rafael'), ('Julieta'), ('Óscar'), ('Abril'), ('Héctor'), ('Guadalupe'), ('Ricardo'),
+        ('Olivia'), ('Sebastián'), ('Valeria'), ('César'), ('Regina'), ('Alfonso'), ('Ana Sofía'),
+        ('Hugo'), ('Emilia'), ('Marcos'), ('Clara'), ('Andrés'), ('Elena'), ('Simón'), ('Noelia'),
+        ('Felipe'), ('Zoe'), ('Alexis'), ('Lola'), ('Iker'), ('Aitana'), ('Jesús'), ('Alma'),
+        ('Óliver'), ('Laia'), ('Jaime'), ('Triana'), ('Mario'), ('Celia'), ('Enzo'), ('Nerea'),
+        ('Amir'), ('Irene'), ('Eric'), ('Carla'), ('Yahir'), ('Mara'), ('Dylan'), ('Lia'),
+        ('Alan'), ('Vera'), ('Aaron'), ('Elsa'), ('Adam'), ('Nadia'), ('Nil'), ('Cloe')
+    ) AS nombres(nombre)
+CROSS JOIN 
+    (VALUES 
+        ('García'), ('Rodríguez'), ('González'), ('Fernández'), ('López'), ('Martínez'),
+        ('Sánchez'), ('Pérez'), ('Gómez'), ('Martín'), ('Jiménez'), ('Ruiz'), ('Hernández'),
+        ('Díaz'), ('Moreno'), ('Muñoz'), ('Álvarez'), ('Romero'), ('Alonso'), ('Gutiérrez'),
+        ('Navarro'), ('Torres'), ('Domínguez'), ('Vázquez'), ('Ramos'), ('Gil'), ('Ramírez'),
+        ('Serrano'), ('Blanco'), ('Suárez'), ('Molina'), ('Morales'), ('Ortega'), ('Delgado'),
+        ('Castro'), ('Ortiz'), ('Rubio'), ('Marín'), ('Sanz'), ('Núñez'), ('Iglesias'),
+        ('Medina'), ('Garrido'), ('Cortés'), ('Castillo'), ('Santos'), ('Lozano'), ('Guerrero'),
+        ('Cano'), ('Prieto'), ('Méndez'), ('Cruz'), ('Calvo'), ('Vidal'), ('León'), ('Márquez'),
+        ('Peña'), ('Cabrera'), ('Flores'), ('Campos'), ('Vega'), ('Fuentes'), ('Carrasco'),
+        ('Reyes'), ('Diez'), ('Caballero'), ('Herrera'), ('Aguilar'), ('Pascual'), ('Santana'),
+        ('Lorenzo'), ('Montero'), ('Hidalgo'), ('Giménez'), ('Ibáñez'), ('Ferrer'), ('Durán'),
+        ('Santiago'), ('Benítez'), ('Mora'), ('Vicente'), ('Rivas'), ('Silva'), ('Velasco'),
+        ('Moya'), ('Soler'), ('Parra'), ('Esteban'), ('Bravo'), ('Gallardo'), ('Rojas')
+    ) AS apellidos(apellido);
 
-Patrón 3: Índices para Ordenamiento
+PRINT '? 5,000 pacientes generados exitosamente con obras sociales: IOSCOR(1), PAMI(2), OSDE(3), SWISS MEDICAL(4)';
+GO
 
--- Índice que coincide con ORDER BY
-CREATE INDEX idx_ordenamiento ON Productos(Categoria, Precio DESC);
+--El error es por teléfonos duplicados. Solo se insertaron 3 pacientes. Vamos a corregirlo.
 
-5.2 Consideraciones por Tipo de Carga de Trabajo
-Sistemas OLTP (Transaccionales):
-Índices delgados y específicos
+USE Medora;
+GO
 
-Enfocar en operaciones puntuales
+PRINT '=== GENERANDO 5,000 PACIENTES (SIN DUPLICADOS) ===';
+GO
 
-Minimizar impacto en escrituras
+-- =============================================
+-- GENERAR 5,000 PACIENTES (VERSIÓN MEJORADA)
+-- =============================================
+PRINT 'Generando 5,000 pacientes...';
 
-Sistemas OLAP (Analíticos):
-Índices covering amplios
+-- Eliminar pacientes existentes si los hay
+DELETE FROM Paciente;
+PRINT '? Tabla Paciente limpiada';
 
-Optimizar para agregaciones
+-- Insertar 5,000 pacientes con datos únicos
+WITH PacientesData AS (
+    SELECT TOP 5000
+        nombres.nombre,
+        apellidos.apellido,
+        RIGHT('00000000' + CAST(ABS(CHECKSUM(NEWID())) + ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS VARCHAR(8)), 8) AS dni,
+        LOWER(nombres.nombre + '.' + apellidos.apellido + CAST(ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS VARCHAR(4)) + '@gmail.com') AS email,
+        '11' + RIGHT('00000000' + CAST(ABS(CHECKSUM(NEWID())) + ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS VARCHAR(8)), 8) AS telefono,
+        CASE 
+            WHEN ABS(CHECKSUM(NEWID())) % 4 = 0 THEN NULL  -- 25% sin obra social
+            ELSE (ABS(CHECKSUM(NEWID())) % 4) + 1  -- 1-4 (IOSCOR, PAMI, OSDE, SWISS MEDICAL)
+        END AS id_obra_social,
+        ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) as rn
+    FROM 
+        (VALUES 
+            ('Lucas'), ('Valentina'), ('Mateo'), ('Sofía'), ('Benjamín'), ('Emma'), ('Thiago'),
+            ('Mía'), ('Santiago'), ('Isabella'), ('Tomás'), ('Camila'), ('Joaquín'), ('Lucía'),
+            ('Nicolás'), ('Martina'), ('Samuel'), ('Julia'), ('Diego'), ('Paula'), ('Daniel'),
+            ('Alejandra'), ('Ángel'), ('Renata'), ('Gabriel'), ('Antonella'), ('Emiliano'),
+            ('Victoria'), ('Adrián'), ('Ximena'), ('Maximiliano'), ('Luna'), ('Leonardo'),
+            ('Catalina'), ('Bruno'), ('Florencia'), ('Julián'), ('Agustina'), ('Gonzalo'),
+            ('Rocío'), ('Rodrigo'), ('Mariana'), ('Francisco'), ('Candela'), ('Lautaro'),
+            ('Bianca'), ('Matías'), ('Jimena'), ('Ignacio'), ('Carolina'), ('Esteban'), ('Delfina')
+        ) AS nombres(nombre)
+    CROSS JOIN 
+        (VALUES 
+            ('García'), ('Rodríguez'), ('González'), ('Fernández'), ('López'), ('Martínez'),
+            ('Sánchez'), ('Pérez'), ('Gómez'), ('Martín'), ('Jiménez'), ('Ruiz'), ('Hernández'),
+            ('Díaz'), ('Moreno'), ('Muñoz'), ('Álvarez'), ('Romero'), ('Alonso'), ('Gutiérrez'),
+            ('Navarro'), ('Torres'), ('Domínguez'), ('Vázquez'), ('Ramos'), ('Gil'), ('Ramírez'),
+            ('Serrano'), ('Blanco'), ('Suárez'), ('Molina'), ('Morales'), ('Ortega'), ('Delgado'),
+            ('Castro'), ('Ortiz'), ('Rubio'), ('Marín'), ('Sanz'), ('Núñez'), ('Iglesias'),
+            ('Medina'), ('Garrido'), ('Cortés'), ('Castillo'), ('Santos'), ('Lozano'), ('Guerrero'),
+            ('Cano'), ('Prieto'), ('Méndez'), ('Cruz'), ('Calvo'), ('Vidal'), ('León'), ('Márquez'),
+            ('Peña'), ('Cabrera'), ('Flores'), ('Campos'), ('Vega'), ('Fuentes'), ('Carrasco'),
+            ('Reyes'), ('Diez'), ('Caballero'), ('Herrera'), ('Aguilar'), ('Pascual'), ('Santana'),
+            ('Lorenzo'), ('Montero'), ('Hidalgo'), ('Giménez'), ('Ibáñez'), ('Ferrer'), ('Durán'),
+            ('Santiago'), ('Benítez'), ('Mora'), ('Vicente'), ('Rivas'), ('Silva'), ('Velasco'),
+            ('Moya'), ('Soler'), ('Parra'), ('Esteban'), ('Bravo'), ('Gallardo'), ('Rojas')
+        ) AS apellidos(apellido)
+)
+INSERT INTO Paciente (nombre, apellido, dni, email, telefono, id_obra_social)
+SELECT nombre, apellido, dni, email, telefono, id_obra_social
+FROM PacientesData;
 
-Priorizar lectura sobre escritura
+PRINT '? 5,000 pacientes generados exitosamente';
+PRINT '?? Verificando conteo...';
 
-5.3 Anti-patrones Comunes
-* Sobre-indexación:
-Demasiados índices en una tabla
+-- Verificar cuántos pacientes se insertaron
+SELECT COUNT(*) AS TotalPacientes FROM Paciente;
+GO
 
-Impacto negativo en rendimiento de escritura
+--Hay un error de overflow. Se simplifico el script
 
-* Índices Redundantes:
-Múltiples índices con las mismas columnas
+USE Medora;
+GO
 
-Duplicación innecesaria
+PRINT '=== GENERANDO 5,000 PACIENTES (VERSIÓN SIMPLIFICADA) ===';
+GO
 
-* Columnas en Orden Incorrecto:
+-- =============================================
+-- GENERAR 5,000 PACIENTES (PASO A PASO)
+-- =============================================
+PRINT '1. Limpiando tabla Paciente...';
+DELETE FROM Paciente;
+PRINT '? Tabla limpiada';
 
--- MAL: Columna con baja selectividad primero
-CREATE INDEX idx_malo ON tabla(Genero, FechaNacimiento);
+PRINT '2. Generando 5,000 pacientes...';
 
--- BIEN: Columna con alta selectividad primero  
-CREATE INDEX idx_bueno ON tabla(FechaNacimiento, Genero);
+DECLARE @Counter INT = 1;
+DECLARE @TotalPacientes INT = 5000;
 
-6. HERRAMIENTAS DE MONITOREO Y ANÁLISIS
-6.1 Herramientas Nativas SQL Server
-Database Engine Tuning Advisor
+WHILE @Counter <= @TotalPacientes
+BEGIN
+    INSERT INTO Paciente (nombre, apellido, dni, email, telefono, id_obra_social)
+    VALUES (
+        CASE (@Counter % 50) + 1
+            WHEN 1 THEN 'Lucas' WHEN 2 THEN 'Valentina' WHEN 3 THEN 'Mateo' WHEN 4 THEN 'Sofía' WHEN 5 THEN 'Benjamín'
+            WHEN 6 THEN 'Emma' WHEN 7 THEN 'Thiago' WHEN 8 THEN 'Mía' WHEN 9 THEN 'Santiago' WHEN 10 THEN 'Isabella'
+            WHEN 11 THEN 'Tomás' WHEN 12 THEN 'Camila' WHEN 13 THEN 'Joaquín' WHEN 14 THEN 'Lucía' WHEN 15 THEN 'Nicolás'
+            WHEN 16 THEN 'Martina' WHEN 17 THEN 'Samuel' WHEN 18 THEN 'Julia' WHEN 19 THEN 'Diego' WHEN 20 THEN 'Paula'
+            WHEN 21 THEN 'Daniel' WHEN 22 THEN 'Alejandra' WHEN 23 THEN 'Ángel' WHEN 24 THEN 'Renata' WHEN 25 THEN 'Gabriel'
+            WHEN 26 THEN 'Antonella' WHEN 27 THEN 'Emiliano' WHEN 28 THEN 'Victoria' WHEN 29 THEN 'Adrián' WHEN 30 THEN 'Ximena'
+            WHEN 31 THEN 'Maximiliano' WHEN 32 THEN 'Luna' WHEN 33 THEN 'Leonardo' WHEN 34 THEN 'Catalina' WHEN 35 THEN 'Bruno'
+            WHEN 36 THEN 'Florencia' WHEN 37 THEN 'Julián' WHEN 38 THEN 'Agustina' WHEN 39 THEN 'Gonzalo' WHEN 40 THEN 'Rocío'
+            WHEN 41 THEN 'Rodrigo' WHEN 42 THEN 'Mariana' WHEN 43 THEN 'Francisco' WHEN 44 THEN 'Candela' WHEN 45 THEN 'Lautaro'
+            WHEN 46 THEN 'Bianca' WHEN 47 THEN 'Matías' WHEN 48 THEN 'Jimena' WHEN 49 THEN 'Ignacio' WHEN 50 THEN 'Carolina'
+        END,
+        CASE (@Counter % 30) + 1
+            WHEN 1 THEN 'García' WHEN 2 THEN 'Rodríguez' WHEN 3 THEN 'González' WHEN 4 THEN 'Fernández' WHEN 5 THEN 'López'
+            WHEN 6 THEN 'Martínez' WHEN 7 THEN 'Sánchez' WHEN 8 THEN 'Pérez' WHEN 9 THEN 'Gómez' WHEN 10 THEN 'Martín'
+            WHEN 11 THEN 'Jiménez' WHEN 12 THEN 'Ruiz' WHEN 13 THEN 'Hernández' WHEN 14 THEN 'Díaz' WHEN 15 THEN 'Moreno'
+            WHEN 16 THEN 'Muñoz' WHEN 17 THEN 'Álvarez' WHEN 18 THEN 'Romero' WHEN 19 THEN 'Alonso' WHEN 20 THEN 'Gutiérrez'
+            WHEN 21 THEN 'Navarro' WHEN 22 THEN 'Torres' WHEN 23 THEN 'Domínguez' WHEN 24 THEN 'Vázquez' WHEN 25 THEN 'Ramos'
+            WHEN 26 THEN 'Gil' WHEN 27 THEN 'Ramírez' WHEN 28 THEN 'Serrano' WHEN 29 THEN 'Blanco' WHEN 30 THEN 'Suárez'
+        END,
+        RIGHT('00000000' + CAST(@Counter + 10000000 AS VARCHAR(8)), 8), -- DNI único
+        'paciente' + CAST(@Counter AS VARCHAR(5)) + '@gmail.com',
+        '11' + RIGHT('00000000' + CAST(@Counter + 20000000 AS VARCHAR(8)), 8), -- Teléfono único
+        CASE 
+            WHEN @Counter % 4 = 0 THEN NULL  -- 25% sin obra social
+            ELSE (@Counter % 4) + 1  -- 1-4 (IOSCOR, PAMI, OSDE, SWISS MEDICAL)
+        END
+    );
+    
+    SET @Counter = @Counter + 1;
+    
+    -- Mostrar progreso cada 500 registros
+    IF @Counter % 500 = 0
+        PRINT '   Progreso: ' + CAST(@Counter AS VARCHAR) + '/5000 pacientes generados';
+END;
 
-SQL Server Profiler
+PRINT '3. Verificando conteo final...';
+SELECT COUNT(*) AS TotalPacientes FROM Paciente;
+PRINT '? GENERACIÓN DE PACIENTES COMPLETADA';
+GO
 
-Extended Events
 
-Dynamic Management Views (DMVs)
+USE Medora;
+GO
 
-6.2 Métricas Clave a Monitorear
-Fragmentación de índices
+PRINT '=== PARTE 3: GENERANDO 50,000 TURNOS (CON DÍAS) ===';
+PRINT 'Configurando días de la semana y generando turnos...';
+GO
 
-Ratio de aciertos en buffer cache
+-- =============================================
+-- 0. CREAR DÍAS DE LA SEMANA PRIMERO
+-- =============================================
+PRINT '0. Creando días de la semana...';
 
-Estadísticas de uso de índices
+IF NOT EXISTS (SELECT 1 FROM Día WHERE nombre = 'Lunes')
+INSERT INTO Día (nombre) VALUES 
+('Lunes'), ('Martes'), ('Miércoles'), ('Jueves'), ('Viernes'), ('Sábado'), ('Domingo');
+PRINT '? Días de la semana creados';
 
-Tiempos de espera relacionados con E/S
+-- =============================================
+-- 1. CREAR BLOQUES HORARIOS PARA MÉDICOS
+-- =============================================
+PRINT '1. Creando bloques horarios para médicos...';
 
-6.3 Scripts de Monitoreo Esenciales
+-- Limpiar bloques existentes si los hay
+DELETE FROM Bloque_Horario;
+PRINT '   Tabla Bloque_Horario limpiada';
 
--- Fragmentación de índices
+-- Insertar bloques horarios para los médicos
+INSERT INTO Bloque_Horario (fecha_inicio, fecha_fin, hora_inicio, hora_fin, duracion_turnos, activo, id_medico, id_dia)
 SELECT 
-    OBJECT_NAME(ips.object_id) AS table_name,
-    i.name AS index_name,
-    ips.avg_fragmentation_in_percent,
-    ips.page_count
-FROM sys.dm_db_index_physical_stats(DB_ID(), NULL, NULL, NULL, 'DETAILED') ips
-INNER JOIN sys.indexes i ON ips.object_id = i.object_id AND ips.index_id = i.index_id
-WHERE ips.avg_fragmentation_in_percent > 30
-ORDER BY ips.avg_fragmentation_in_percent DESC;
+    DATEADD(DAY, -30, CAST(GETDATE() AS DATE)) AS fecha_inicio, -- Desde hace 30 días
+    DATEADD(DAY, 60, CAST(GETDATE() AS DATE)) AS fecha_fin,    -- Hasta 60 días en el futuro
+    CASE 
+        WHEN m.id_medico % 3 = 0 THEN '08:00'
+        WHEN m.id_medico % 3 = 1 THEN '09:00' 
+        ELSE '14:00'
+    END AS hora_inicio,
+    CASE 
+        WHEN m.id_medico % 3 = 0 THEN '12:00'
+        WHEN m.id_medico % 3 = 1 THEN '13:00'
+        ELSE '18:00'
+    END AS hora_fin,
+    30 AS duracion_turnos, -- 30 minutos por turno
+    1 AS activo,
+    m.id_medico,
+    CASE 
+        WHEN m.id_medico % 7 = 0 THEN 1  -- Lunes
+        WHEN m.id_medico % 7 = 1 THEN 2  -- Martes
+        WHEN m.id_medico % 7 = 2 THEN 3  -- Miércoles
+        WHEN m.id_medico % 7 = 3 THEN 4  -- Jueves
+        WHEN m.id_medico % 7 = 4 THEN 5  -- Viernes
+        WHEN m.id_medico % 7 = 5 THEN 6  -- Sábado
+        ELSE 7  -- Domingo
+    END AS id_dia
+FROM (
+    SELECT id_usuario AS id_medico 
+    FROM Usuario 
+    WHERE id_rol = 2 -- Solo médicos
+) m;
+PRINT '? Bloques horarios creados: ' + CAST(@@ROWCOUNT AS VARCHAR) + ' bloques';
 
-7. CASO PRÁCTICO: OPTIMIZACIÓN PASO A PASO
-7.1 Análisis Inicial
-Identificar consultas lentas
+-- =============================================
+-- 2. GENERAR TURNOS DISPONIBLES (50,000)
+-- =============================================
+PRINT '2. Generando 50,000 turnos disponibles...';
 
-Analizar planes de ejecución
+-- Limpiar turnos existentes si los hay
+DELETE FROM Turno;
+PRINT '   Tabla Turno limpiada';
 
-Revisar estadísticas de uso
+DECLARE @Counter INT = 1;
+DECLARE @TotalTurnos INT = 50000;
+DECLARE @BloquesCount INT;
 
-7.2 Implementación
-Crear índices estratégicos
+SELECT @BloquesCount = COUNT(*) FROM Bloque_Horario;
+PRINT '   Total de bloques horarios: ' + CAST(@BloquesCount AS VARCHAR);
 
-Eliminar índices no utilizados
+WHILE @Counter <= @TotalTurnos
+BEGIN
+    INSERT INTO Turno (fecha_turno, hora_inicio, hora_fin, id_bloque, id_entado_turno)
+    SELECT TOP 1
+        -- Fecha dentro del rango del bloque (solo futuras)
+        DATEADD(DAY, 
+                ABS(CHECKSUM(NEWID())) % (DATEDIFF(DAY, CAST(GETDATE() AS DATE), bh.fecha_fin) + 1),
+                CAST(GETDATE() AS DATE)) AS fecha_turno,
+        -- Hora de inicio basada en duración de turnos
+        DATEADD(MINUTE, 
+                (ABS(CHECKSUM(NEWID())) % ((DATEDIFF(MINUTE, bh.hora_inicio, bh.hora_fin) / bh.duracion_turnos)) * bh.duracion_turnos),
+                bh.hora_inicio) AS hora_inicio,
+        -- Hora de fin (inicio + duración)
+        DATEADD(MINUTE, bh.duracion_turnos,
+                DATEADD(MINUTE, 
+                        (ABS(CHECKSUM(NEWID())) % ((DATEDIFF(MINUTE, bh.hora_inicio, bh.hora_fin) / bh.duracion_turnos)) * bh.duracion_turnos),
+                        bh.hora_inicio)) AS hora_fin,
+        bh.id_bloque,
+        1 AS id_entado_turno -- Estado: Disponible
+    FROM Bloque_Horario bh
+    WHERE bh.activo = 1
+      AND DATEADD(DAY, 
+                  ABS(CHECKSUM(NEWID())) % (DATEDIFF(DAY, CAST(GETDATE() AS DATE), bh.fecha_fin) + 1),
+                  CAST(GETDATE() AS DATE)) >= CAST(GETDATE() AS DATE);
+    
+    SET @Counter = @Counter + 1;
+    
+    -- Mostrar progreso cada 5,000 registros
+    IF @Counter % 5000 = 0
+        PRINT '   Progreso: ' + CAST(@Counter AS VARCHAR) + '/50000 turnos generados';
+END;
 
-Reorganizar/rebuild índices fragmentados
+-- =============================================
+-- 3. VERIFICACIÓN FINAL
+-- =============================================
+PRINT '3. Verificando resultados...';
 
-7.3 Validación
-Medir mejoras de rendimiento
+PRINT '   Total de bloques horarios:';
+SELECT COUNT(*) AS TotalBloques FROM Bloque_Horario;
 
-Verificar impacto en operaciones de escritura
+PRINT '   Total de turnos generados:';
+SELECT COUNT(*) AS TotalTurnos FROM Turno;
 
-Ajustar según resultados
+PRINT '   Turnos por estado:';
+SELECT 
+    id_entado_turno AS Estado,
+    COUNT(*) AS Cantidad
+FROM Turno 
+GROUP BY id_entado_turno;
 
-8. TENDENCIAS Y FUTURO
-8.1 Nuevas Tecnologías
-Índices en memoria (In-Memory OLTP)
+PRINT '? PARTE 3 COMPLETADA: 50,000 turnos generados';
+GO
 
-Índices columnstore para analytics
 
-Inteligencia artificial en optimización de consultas
+-- Verificar días existentes
+SELECT id_dia, nombre FROM Día ORDER BY id_dia;
 
-Automatic tuning en bases de datos modernas
 
-8.2 Mejores Prácticas Emergentes
-Indexación automática en la nube
+USE Medora;
+GO
 
-Monitoreo continuo con machine learning
+PRINT '=== PARTE 3: GENERANDO BLOQUES HORARIOS (LUNES A SÁBADO) ===';
+GO
 
-Optimización basada en patrones de uso reales
+-- =============================================
+-- 1. CREAR BLOQUES HORARIOS (SOLO DÍAS 1-6)
+-- =============================================
+PRINT '1. Creando bloques horarios para médicos...';
 
-9. CONCLUSIÓN
-La optimización de índices es un proceso continuo y crítico para el rendimiento de bases de datos. Requiere:
+-- Limpiar bloques existentes
+DELETE FROM Bloque_Horario;
+PRINT '   Tabla Bloque_Horario limpiada';
 
-✅ Monitoreo constante
+-- Insertar bloques horarios usando SOLO días 1-6
+INSERT INTO Bloque_Horario (fecha_inicio, fecha_fin, hora_inicio, hora_fin, duracion_turnos, activo, id_medico, id_dia)
+SELECT 
+    DATEADD(DAY, -30, CAST(GETDATE() AS DATE)) AS fecha_inicio, -- Desde hace 30 días
+    DATEADD(DAY, 60, CAST(GETDATE() AS DATE)) AS fecha_fin,    -- Hasta 60 días en el futuro
+    CASE 
+        WHEN m.id_medico % 3 = 0 THEN '08:00'  -- Turno mañana
+        WHEN m.id_medico % 3 = 1 THEN '09:00'  -- Turno mañana
+        ELSE '14:00'                           -- Turno tarde
+    END AS hora_inicio,
+    CASE 
+        WHEN m.id_medico % 3 = 0 THEN '12:00'  -- Mañana
+        WHEN m.id_medico % 3 = 1 THEN '13:00'  -- Mañana
+        ELSE '18:00'                           -- Tarde
+    END AS hora_fin,
+    30 AS duracion_turnos, -- 30 minutos por turno
+    1 AS activo,
+    m.id_medico,
+    -- Distribuir en los 6 días disponibles (1-6)
+    (m.id_medico % 6) + 1 AS id_dia
+FROM (
+    SELECT id_usuario AS id_medico 
+    FROM Usuario 
+    WHERE id_rol = 2 -- Solo médicos
+) m;
+PRINT '? Bloques horarios creados: ' + CAST(@@ROWCOUNT AS VARCHAR) + ' bloques';
 
-✅ Análisis de patrones de uso
 
-✅ Equilibrio entre lectura y escritura
+--Opción 1: Usando ROW_NUMBER()
 
-✅ Aplicación de mejores prácticas probadas
+-- Insertar 3 reservas usando IDs existentes
 
-✅ Adaptación a cambios en el workload
+INSERT INTO Reserva (diagnostico, id_estado, id_turno, id_paciente, id_motivo_consulta)
+SELECT 
+    datos.diagnostico,
+    datos.id_estado,
+    t.id_turno,
+    p.id_paciente,
+    m.id_motivo_consulta
+FROM (
+    SELECT 
+        ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) as rn,
+        diagnostico,
+        id_estado
+    FROM (VALUES
+        (1, 'Control de rutina', 1),
+        (2, 'Dolor de cabeza', 1),
+        (3, 'Consulta por fiebre', 2)
+    ) as datos(rn, diagnostico, id_estado)
+) as datos
+LEFT JOIN (
+    SELECT id_turno, ROW_NUMBER() OVER (ORDER BY id_turno) as rn 
+    FROM Turno
+) as t ON t.rn = datos.rn
+LEFT JOIN (
+    SELECT id_paciente, ROW_NUMBER() OVER (ORDER BY id_paciente) as rn 
+    FROM Paciente
+) as p ON p.rn = datos.rn
+LEFT JOIN (
+    SELECT id_motivo_consulta, ROW_NUMBER() OVER (ORDER BY id_motivo_consulta) as rn 
+    FROM Motivo_Consulta
+) as m ON m.rn = datos.rn
+WHERE t.id_turno IS NOT NULL AND p.id_paciente IS NOT NULL AND m.id_motivo_consulta IS NOT NULL;
 
-La inversión en una estrategia adecuada de indexación retorna dividendos significativos en rendimiento, escalabilidad y experiencia del usuario.
+--Para verificar que todo está correcto:
 
- BIBLIOGRAFÍA RESUMIDA - OPTIMIZACIÓN DE ÍNDICES
-[1] Ramakrishnan, R., & Gehrke, J. (2003). 
-"Database Management Systems" (3rd ed.). McGraw-Hill.
-- Capítulos 8-9: Fundamentos de indexación
+-- Ver todas las reservas insertadas
+SELECT 
+    r.id_reserva,
+    r.diagnostico,
+    er.nombre as estado_reserva,
+    r.id_turno,
+    r.id_paciente,
+    r.id_motivo_consulta
+FROM Reserva r
+INNER JOIN Estado_Reserva er ON r.id_estado = er.id_estado;
 
-[2] Elmasri, R., & Navathe, S. B. (2016).
-"Fundamentals of Database Systems" (7th ed.). Pearson.
-- Capítulo 17: Diseño físico y optimización
+-- Ejecutar tu verificación final
+PRINT '6. VERIFICANDO RESERVAS...';
 
-DOCUMENTACIÓN TÉCNICA
-[3] Microsoft Corporation. (2023).
-"SQL Server Index Architecture and Design Guide"
-Microsoft Docs.
+SELECT 
+    COUNT(*) AS TotalReservas,
+    COUNT(DISTINCT id_paciente) AS PacientesConReservas,
+    COUNT(DISTINCT id_turno) AS TurnosReservados
+FROM Reserva;
 
-[4] Oracle Corporation. (2023).
-"Database Concepts: Indexes"
-Oracle Documentation.
+-- =============================================
+-- 2. VERIFICACIÓN
+-- =============================================
+PRINT '2. Verificando bloques creados...';
+SELECT COUNT(*) AS TotalBloques FROM Bloque_Horario;
 
-INVESTIGACIONES CLAVE
-[5] Graefe, G. (2011). 
-"Modern B-Tree Techniques"
-Foundations and Trends in Databases, 3(4), 203-402.
+PRINT '   Distribución por días:';
+SELECT 
+    d.nombre AS Dia,
+    COUNT(*) AS CantidadBloques
+FROM Bloque_Horario bh
+JOIN Día d ON bh.id_dia = d.id_dia
+GROUP BY d.nombre, d.id_dia
+ORDER BY d.id_dia;
 
-[6] Chaudhuri, S., & Narasayya, V. R. (1998).
-"AutoAdmin 'What-if' Index Analysis Utility"
-ACM SIGMOD Record.
+PRINT '? BLOQUES HORARIOS CREADOS EXITOSAMENTE';
+GO
 
- FUENTES PRÁCTICAS
 
-[7] Fritchey, G. (2018).
-"SQL Server Execution Plans" (3rd ed.). Redgate Books.
 
-[8] Microsoft Learn. (2023).
-"SQL Server Performance Tuning and Optimization"
 
-RECURSOS ACTUALES
 
-[9] Stack Overflow. (2023).
-"Database Indexing Questions and Best Practices"
 
-[10] SQL Server Central. (2023).
-"Forums on SQL Server Performance Tuning"
 
-CITAS ESENCIALES PARA TU TRABAJO:
+PRINT '=== VERIFICACIÓN COMPLETA DE DATOS GENERADOS ===';
+GO
 
-"Según Ramakrishnan y Gehrke (2003), los índices permiten 
-acceso eficiente a datos sin escanear tablas completas."
+-- =============================================
+-- 1. VERIFICACIÓN DE ESPECIALIDADES
+-- =============================================
+PRINT '1. VERIFICANDO ESPECIALIDADES...';
+SELECT 
+    COUNT(*) AS TotalEspecialidades,
+    STRING_AGG(nombre, ', ') AS Especialidades
+FROM Especialidad;
+GO
 
-"Microsoft (2023) enfatiza que el diseño adecuado de índices 
-es crucial para el rendimiento de SQL Server."
+-- =============================================
+-- 2. VERIFICACIÓN DE USUARIOS/MÉDICOS
+-- =============================================
+PRINT '2. VERIFICANDO USUARIOS Y MÉDICOS...';
+SELECT 
+    'Total Usuarios' AS Tipo,
+    COUNT(*) AS Cantidad 
+FROM Usuario
+UNION ALL
+SELECT 
+    'Médicos',
+    COUNT(*) 
+FROM Usuario 
+WHERE id_rol = 2
+UNION ALL
+SELECT 
+    'Administradores',
+    COUNT(*) 
+FROM Usuario 
+WHERE id_rol = 1
+UNION ALL
+SELECT 
+    'Recepcionistas',
+    COUNT(*) 
+FROM Usuario 
+WHERE id_rol = 3;
 
-"Graefe (2011) demuestra que las técnicas de indexación 
-B-Tree evolucionan para mejorar el rendimiento."
+-- Distribución de médicos por especialidad
+PRINT '   Distribución de médicos por especialidad:';
+SELECT 
+    e.nombre AS Especialidad,
+    COUNT(u.id_usuario) AS CantidadMedicos
+FROM Usuario u
+JOIN Especialidad e ON u.id_especialidad = e.id_especialidad
+WHERE u.id_rol = 2
+GROUP BY e.nombre
+ORDER BY CantidadMedicos DESC;
+GO
+
+-- =============================================
+-- 3. VERIFICACIÓN DE PACIENTES
+-- =============================================
+PRINT '3. VERIFICANDO PACIENTES...';
+SELECT 
+    COUNT(*) AS TotalPacientes,
+    COUNT(DISTINCT dni) AS DNIsUnicos,
+    COUNT(DISTINCT email) AS EmailsUnicos,
+    COUNT(DISTINCT telefono) AS TelefonosUnicos
+FROM Paciente;
+
+-- Distribución por obra social
+PRINT '   Distribución por obra social:';
+SELECT 
+    ISNULL(os.nombre, 'SIN OBRA SOCIAL') AS ObraSocial,
+    COUNT(*) AS CantidadPacientes,
+    CAST(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM Paciente) AS DECIMAL(5,2)) AS Porcentaje
+FROM Paciente p
+LEFT JOIN Obra_Social os ON p.id_obra_social = os.id_obra_social
+GROUP BY os.nombre
+ORDER BY CantidadPacientes DESC;
+GO
+
+-- =============================================
+-- 4. VERIFICACIÓN DE BLOQUES HORARIOS
+-- =============================================
+PRINT '4. VERIFICANDO BLOQUES HORARIOS...';
+SELECT 
+    COUNT(*) AS TotalBloques,
+    COUNT(DISTINCT id_medico) AS MedicosConBloques,
+    MIN(fecha_inicio) AS FechaInicioMasAntigua,
+    MAX(fecha_fin) AS FechaFinMasFutura
+FROM Bloque_Horario;
+
+-- Distribución por día de la semana
+PRINT '   Distribución por día de la semana:';
+SELECT 
+    d.nombre AS Dia,
+    COUNT(*) AS CantidadBloques
+FROM Bloque_Horario bh
+JOIN Día d ON bh.id_dia = d.id_dia
+GROUP BY d.nombre, d.id_dia
+ORDER BY d.id_dia;
+GO
+
+-- =============================================
+-- 5. VERIFICACIÓN DE TURNOS
+-- =============================================
+PRINT '5. VERIFICANDO TURNOS...';
+SELECT 
+    COUNT(*) AS TotalTurnos,
+    COUNT(DISTINCT id_bloque) AS BloquesConTurnos,
+    MIN(fecha_turno) AS FechaTurnoMasAntigua,
+    MAX(fecha_turno) AS FechaTurnoMasFutura
+FROM Turno;
+
+-- Distribución por estado de turno
+PRINT '   Distribución por estado de turno:';
+SELECT 
+    et.nombre AS Estado,
+    COUNT(*) AS CantidadTurnos,
+    CAST(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM Turno) AS DECIMAL(5,2)) AS Porcentaje
+FROM Turno t
+JOIN Estado_Turno et ON t.id_estado_turno = et.id_estado_turno
+GROUP BY et.nombre, et.id_estado_turno
+ORDER BY et.id_estado_turno;
+
+-- Turnos por mes
+PRINT '   Turnos por mes:';
+SELECT 
+    YEAR(fecha_turno) AS Año,
+    MONTH(fecha_turno) AS Mes,
+    COUNT(*) AS CantidadTurnos
+FROM Turno
+GROUP BY YEAR(fecha_turno), MONTH(fecha_turno)
+ORDER BY Año, Mes;
+GO
+
+
+-- =============================================
+-- 6. VERIFICACIÓN DE RESERVAS (SI EXISTEN)
+-- =============================================
+PRINT '6. VERIFICANDO RESERVAS...';
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Reserva')
+BEGIN
+    SELECT 
+        COUNT(*) AS TotalReservas,
+        COUNT(DISTINCT id_paciente) AS PacientesConReservas,
+        COUNT(DISTINCT id_turno) AS TurnosReservados
+    FROM Reserva;
+
+    -- Distribución por estado de reserva
+    PRINT '   Distribución por estado de reserva:';
+    SELECT 
+        er.nombre AS Estado,
+        COUNT(*) AS CantidadReservas
+    FROM Reserva r
+    JOIN Estado_Reserva er ON r.id_estado = er.id_estado
+    GROUP BY er.nombre, er.id_estado
+    ORDER BY er.id_estado;
+END
+ELSE
+    PRINT '   Tabla Reserva no contiene datos aún';
+GO
+
+-- =============================================
+-- 7. RESUMEN FINAL
+-- =============================================
+PRINT '7. RESUMEN FINAL:';
+SELECT 
+    'Especialidades' AS Tabla,
+    COUNT(*) AS Cantidad 
+FROM Especialidad
+UNION ALL
+SELECT 'Usuarios Total', COUNT(*) FROM Usuario
+UNION ALL  
+SELECT 'Médicos', COUNT(*) FROM Usuario WHERE id_rol = 2
+UNION ALL
+SELECT 'Pacientes', COUNT(*) FROM Paciente
+UNION ALL
+SELECT 'Bloques Horarios', COUNT(*) FROM Bloque_Horario
+UNION ALL
+SELECT 'Turnos', COUNT(*) FROM Turno
+UNION ALL
+SELECT 'Reservas', COUNT(*) FROM Reserva;
+GO
+PRINT '=== VERIFICACIÓN COMPLETADA ===';
+
+
+
+
+
+
+---Carga masiva en tabla turno (100,000 registros)
+
+
+-- Insertar 10,000 registros
+INSERT INTO Turno (fecha_turno, hora_inicio, hora_fin, id_bloque, id_estado_turno)
+SELECT TOP 10000
+    DATEADD(DAY, -1 * (number % 365), '2024-01-01') AS fecha_turno,  -- Rango controlado
+    CAST('08:00' AS TIME) AS hora_inicio,
+    CAST('08:30' AS TIME) AS hora_fin,
+    102194387 AS id_bloque,
+    1 AS id_estado_turno
+FROM (
+    SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS number
+    FROM sys.objects o1
+    CROSS JOIN sys.objects o2
+) AS numbers;
+
+
+ --PASO 2: Consulta por periodo SIN índice adicional
+
+ -- Ejecutar con Ctrl+M (Include Actual Execution Plan)
+SELECT 
+    COUNT(*) as total_turnos,
+    DATEPART(MONTH, fecha_turno) as mes,
+    DATEPART(WEEK, fecha_turno) as semana
+FROM Turno
+WHERE fecha_turno BETWEEN '2024-01-01' AND '2024-06-30'
+GROUP BY DATEPART(MONTH, fecha_turno), DATEPART(WEEK, fecha_turno)
+ORDER BY mes, semana;
+
+
+-- PASO 3:  PASO 3 CORREGIDO: Crear índice NO AGRUPADO en fecha_turno
+
+CREATE NONCLUSTERED INDEX idx_turno_fecha_nonclustered 
+ON Turno(fecha_turno);
+
+
+--PASO 4: Repetir consulta CON índice no agrupado
+
+-- Misma consulta del PASO 2
+SELECT 
+    COUNT(*) as total_turnos,
+    DATEPART(MONTH, fecha_turno) as mes,
+    DATEPART(WEEK, fecha_turno) as semana
+FROM Turno
+WHERE fecha_turno BETWEEN '2024-01-01' AND '2024-06-30'
+GROUP BY DATEPART(MONTH, fecha_turno), DATEPART(WEEK, fecha_turno)
+ORDER BY mes, semana;
+
+--PASO 5: Borrar índice no agrupado
+
+DROP INDEX idx_turno_fecha_nonclustered ON Turno;
+
+--PASO 6: Crear índice covering (ya es no agrupado)
+
+CREATE NONCLUSTERED INDEX idx_turno_fecha_covering 
+ON Turno(fecha_turno)
+INCLUDE (id_estado_turno, hora_inicio, hora_fin, id_bloque);
+
+--PASO 7: Repetir consulta CON índice covering
+
+-- Misma consulta del PASO 2
+SELECT 
+    COUNT(*) as total_turnos,
+    DATEPART(MONTH, fecha_turno) as mes,
+    DATEPART(WEEK, fecha_turno) as semana
+FROM Turno
+WHERE fecha_turno BETWEEN '2024-01-01' AND '2024-06-30'
+GROUP BY DATEPART(MONTH, fecha_turno), DATEPART(WEEK, fecha_turno)
+ORDER BY mes, semana;
+
+
+
+
+
+
+
 
 
 
