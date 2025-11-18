@@ -123,7 +123,7 @@ En cambio, las rutinas almacenadas:
 
 Por estos motivos, constituyen la opción profesional más adecuada para sistemas que requieren integridad, rendimiento y escalabilidad, como un software de gestión de turnos médicos.
 ## Conclusión tema 2 “Optimización de consultas a través de índices”:
-
+A través de este ejercicio pudimos visualizar la potencia de esta técnica de optimización que resulta indispensable para los sistemas modernos que requieren de enormes consultas con millones de registros en distintas bases de datos al bajar drásticamente el tiempo de ejecución moviendo mas de dos millones de registros. Con respecto a la investigación pudimos profundizar en los tipos de indices existentes y los elementos que los componen.
 ## Conclusión tema 3 “Manejo de transacciones y transacciones anidadas”:
 
 Las pruebas realizadas en los scripts demuestran la implementación práctica y la importancia crítica del modelo ACID en SQL Server.  
