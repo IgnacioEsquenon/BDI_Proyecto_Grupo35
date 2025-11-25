@@ -163,7 +163,7 @@ Con un tiempo de ejecución de 1719 ms, un tiempo total de 1201 ms y un total de
 El plan de ejecución cambió ya que se aplicó el indice agrupado sobre la columna que estamos haciendo la consulta. Es decir que el motor solamente tuvo que ir directo al primer índice que cumple con lo solicitado en la consulta reduciendo drásticamente el tiempo de ejecución. 
 Con un tiempo de ejecución de 797 ms, un tiempo total de 887 ms y un total de 2.300.964 registros obtenidos.
 
-# Plan de ejecución en la tabla con índice agrupado sobre la columna fecha inicio
+# Plan de ejecución en la tabla con índice agrupado sobre la columna fecha inicio y las columnas seleccionadas
 <img width="1238" height="364" alt="image" src="https://github.com/user-attachments/assets/d3d3ddd5-fa57-4dba-81e7-b4f36c68bbe0" />
 El plan de ejecución no cambió a simple vista, la diferencia es que la consulta no tuvo que leer un indice y luego un registro, solo tuvo que leer índices por lo que disminuyó un poco su tiempo de ejecución.
 Con un tiempo de ejecución de 750 ms, un tiempo total de 864 ms y un total de 2.300.964 registros obtenidos
