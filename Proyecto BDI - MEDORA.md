@@ -9,7 +9,7 @@ Asignatura: Base de Datos I (FACENA/UNNE)
 * Esquenón, Ignacio Agustín  
 * Gomez, Sebastián Exequiel
 
-## Año: 2024
+## Año: 2025
 
 # CAPÍTULO I: INTRODUCCIÓN.
 
