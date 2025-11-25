@@ -31,4 +31,97 @@ Lo crucial es que un ROLLBACK TRANSACTION en cualquier nivel anidado revierte la
 
 Para lograr una reversión parcial, que es un objetivo común en lógicas de negocio complejas, la herramienta correcta es SAVE TRANSACTION (o SAVEPOINT).
 
-Un SAVEPOINT marca un punto dentro de una transacción al que se puede revertir parcialmente (ROLLBACK TRANSACTION <nombre_savepoint>) sin cancelar la transacción principal. Esto permite que una operación secundaria (Tarea B) falle y sea revertida, mientras que la operación principal (Tarea A) puede continuar y ser confirmada (COMMIT).
+Un SAVEPOINT marca un punto dentro de una transacción al que se puede revertir parcialmente (ROLLBACK TRANSACTION <nombre_savepoint>) sin cancelar la transacción principal. Esto permite que una operación secundaria (Tarea B) falle y sea revertida, mientras que la operación principal (Tarea A) puede continuar y ser confirmada (COMMIT). 
+
+_Pruebas_
+
+Para validar estos conceptos, se realizaron las siguientes pruebas en la base de datos MedoraBD_Proyecto. Las capturas de pantalla de los resultados (Pestañas "Resultados" y "Mensajes" de SSMS) se adjuntan a este informe.
+
+Caso de Prueba 1: Transacción Simple (Atomicidad)
+Objetivo: Probar la propiedad de Atomicidad (el principio de "todo o nada") de una transacción explícita.
+
+Escenario: Se define una transacción para "Registrar un Paciente y su Primera Reserva", la cual consiste en tres operaciones que deben tener éxito como una sola unidad:
+
+* INSERT en Paciente (el nuevo paciente).
+
+* INSERT en Reserva (la nueva reserva).
+
+* UPDATE en Turno (marcar el turno como 'Reservado').
+
+Prueba 1.1: Prueba de Éxito (COMMIT)
+Acción: Se ejecuta el script de transacción en un escenario ideal, con un DNI de paciente nuevo y un id_turno disponible.
+
+Resultado (Capturas 1, 2, 3):
+
+La pestaña "Mensajes" muestra que las 3 operaciones se ejecutan y finalizan con "COMMIT completado.".
+
+La verificación "Después" demuestra que la nueva fila en Paciente existe, la nueva fila en Reserva existe, y la fila en Turno fue actualizada a id_estado_turno = 2.
+
+Conclusión: La transacción funciona y cumple con la Durabilidad.
+
+Prueba 1.2: Prueba de Fallo Forzado (ROLLBACK Total)
+Acción: Se modifica el script para incluir un THROW (error forzado) manual después del primer INSERT (Paciente) pero antes del segundo (Reserva).
+
+Resultado (Capturas 4, 5, 6):
+
+La pestaña "Mensajes" muestra que el INSERT del paciente se ejecuta, pero el THROW detiene la operación y activa el bloque CATCH. Se muestra el mensaje "Realizando ROLLBACK...".
+
+La verificación "Después" demuestra que la base de datos está en el mismo estado que "Antes": el Paciente no fue creado y el Turno sigue Disponible.
+
+Conclusión: Se comprueba la Atomicidad. Aunque una parte de la transacción se ejecutó, el ROLLBACK revirtió todos los cambios, dejando la base de datos consistente.
+
+Prueba 1.3: Prueba de Fallo por Regla de Negocio (ROLLBACK Total)
+Acción: Se ejecuta el script de transacción (esta vez sin el THROW forzado) pero se intenta usar un id_turno que ya está ocupado (ej. id_estado_turno = 2).
+
+_Resultado_
+
+Una validación de datos (RAISERROR) dentro del TRY se dispara, notificando que "El turno no está disponible".
+
+El CATCH captura este error y ejecuta un ROLLBACK total.
+
+_Caso de Prueba 2: Atomicidad Parcial (SAVEPOINT)_
+
+Objetivo: Probar una reversión parcial usando SAVE TRANSACTION para manejar operaciones con distintas prioridades.
+
+Escenario: Se simula una "Reprogramación de Reserva", que consta de dos partes:
+
+Tarea A (Crítica): Crear la nueva reserva en el turno futuro (ej. Turno 2).
+
+Tarea B (Secundaria): Cancelar la vieja reserva (ej. Turno 1).
+
+Justificación: La prioridad es asegurar la nueva cita del paciente (Tarea A). Si la cancelación de la cita vieja (Tarea B) falla, no debe deshacerse la nueva reserva.
+
+Prueba 2.1: Fallo de Tarea Secundaria (ROLLBACK Parcial)
+Acción: Se ejecuta un script que:
+
+* Inicia la transacción principal (BEGIN TRAN).
+
+* Completa la Tarea A (crea la nueva reserva en el Turno 2).
+
+* Define un SAVE TRANSACTION PuntoCancelacion.
+
+* Intenta la Tarea B, pero se inserta un THROW manual para forzar su fallo.
+
+* Un CATCH interno captura el error y ejecuta ROLLBACK TRANSACTION PuntoCancelacion.
+
+* La transacción principal continúa y ejecuta COMMIT TRANSACTION.
+
+Resultado (Capturas 7, 8, 9):
+
+La pestaña "Mensajes" muestra que el ¡ERROR SECUNDARIO! fue capturado, se ejecutó el Rollback parcial, y (crucialmente) la transacción principal finalizó con "COMMIT completado.".
+
+La verificación "Después" es la prueba clave:
+
+* Reserva Nueva (Turno 2): Muestra 1 fila. (¡La Tarea A SE GUARDÓ!)
+
+* Reserva Vieja (Turno 1): Muestra id_estado = 1. (¡La Tarea B SE REVIRTIÓ!)
+
+_Conclusión_
+
+Basicamente se demuestra el uso exitoso de los SAVEPOINT. El sistema manejó un error en una operación secundaria de forma resiliente, revirtiendo solo esa parte y confirmando el trabajo crítico.
+
+Las transacciones simples (BEGIN/COMMIT/ROLLBACK) son la herramienta fundamental para garantizar la Atomicidad en operaciones de "todo o nada", previniendo la corrupción de datos.
+
+Los SAVEPOINTs (SAVE TRANSACTION) proveen un mecanismo de control de errores más granular. Permiten que el sistema sea resiliente, manejando fallos en tareas secundarias sin deshacer operaciones críticas que ya se han completado.
+
+El manejo correcto de transacciones no es una característica opcional, sino un requisito indispensable para cualquier base de datos que deba mantener la integridad y consistencia de sus datos.
