@@ -20,7 +20,10 @@ Las desventajas que presenta la replicación transaccional son:
 * Dependencia de la red: Este tipo de replicación requiere una conexión constante y fiable por la constante utilización de esta para mover las transacciones.  
 * No maneja conflictos de forma nativa: Si ocurre un conflicto de datos, la replicación se detiene y requiere información manual para solucionarlo.
 
-# Elementos de la replicación transaccional, maestro-esclavo.
+# Elementos de la replicación:
+
+<img width="998" height="624" alt="image" src="https://github.com/user-attachments/assets/ed30856e-47d1-42b8-9307-959431a5956c" />
+
 
 ## Publicador:
 
